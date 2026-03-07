@@ -1,0 +1,17 @@
+-- Seed data for development
+-- Create a test user in Supabase Auth first, then uncomment and use that user's ID
+
+-- INSERT INTO sellers (user_id, business_name, slug, description, category, city, country, language, phone, status, plan)
+-- VALUES (
+--   'YOUR_AUTH_USER_ID',
+--   'Sunita''s Kitchen',
+--   'sunitas-kitchen',
+--   'Homemade Indian snacks made with love. Fresh chakli, chivda, and seasonal specials.',
+--   'food',
+--   'Mumbai',
+--   'india',
+--   'hi',
+--   '+919876543210',
+--   'active',
+--   'growth'
+-- );

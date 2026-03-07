@@ -1,0 +1,18 @@
+{
+  "name": "klovi",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "turbo run dev --filter=@klovi/web",
+    "dev:mobile": "turbo run dev --filter=@klovi/mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "db:migrate": "cd packages/supabase && supabase db push",
+    "db:reset": "cd packages/supabase && supabase db reset",
+    "db:seed": "cd packages/supabase && supabase db seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "packageManager": "npm@10.0.0"
+}

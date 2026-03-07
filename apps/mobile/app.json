@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Klovi",
+    "slug": "klovi",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "klovi",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": { "backgroundColor": "#1a0f00", "resizeMode": "contain" },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.klovi.app" },
+    "android": { "adaptiveIcon": { "backgroundColor": "#1a0f00" }, "package": "com.klovi.app" },
+    "plugins": ["expo-router", "expo-font"]
+  }
+}
