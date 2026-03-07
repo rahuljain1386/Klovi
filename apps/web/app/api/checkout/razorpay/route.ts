@@ -38,7 +38,7 @@ export async function POST(request: Request) {
   const rzpOrder = await response.json();
 
   // Update order with Razorpay order ID
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   await supabase
     .from('orders')
     .update({ payment_id: rzpOrder.id })

@@ -3,9 +3,7 @@ import Stripe from 'stripe';
 import { createServerClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-04-10',
-  });
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
   const body = await request.json();
   const { order_id, seller_id, items, currency, success_url, cancel_url } = body;
@@ -14,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing order details' }, { status: 400 });
   }
 
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   // Get seller info for Stripe Connect (if applicable)
   const { data: seller } = await supabase

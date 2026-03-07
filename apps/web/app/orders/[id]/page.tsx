@@ -14,7 +14,7 @@ export default async function OrderTrackingPage({
 }: {
   params: { id: string };
 }) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
 
   const { data: order } = await supabase
     .from('orders')

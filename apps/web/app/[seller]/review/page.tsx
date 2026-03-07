@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/supabase/client';
 
 export default function ReviewPage() {
   const params = useParams();

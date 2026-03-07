@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 
 // GET: Fetch reviews for a seller (seller-facing)
 export async function GET(request: Request) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { searchParams } = new URL(request.url);
   const sellerId = searchParams.get('seller_id');
 
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
 // POST: Customer submitting a review
 export async function POST(request: Request) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const body = await request.json();
   const { order_id, rating, comment } = body;
 

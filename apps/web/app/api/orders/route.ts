@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase/server';
 
 // GET: Fetch orders for authenticated seller
 export async function GET(request: Request) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
 // POST: Create a new order (from booking page or AI messaging)
 export async function POST(request: Request) {
-  const supabase = createServerClient();
+  const supabase = await createServerClient();
   const body = await request.json();
   const { seller_id, customer_name, customer_phone, items, fulfillment_type, delivery_address, scheduled_date, scheduled_time, payment_method, notes } = body;
 
