@@ -15,8 +15,8 @@ export default function LandingPage() {
           <Link href="/discover" className="hover:text-ink transition-colors">Discover Sellers</Link>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/login" className="text-sm font-medium text-warm-gray hover:text-ink transition-colors">Log in</Link>
-          <Link href="/get-started" className="bg-ink text-amber px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors">Start Free</Link>
+          <Link href="/auth/login" className="text-sm font-medium text-warm-gray hover:text-ink transition-colors">Log in</Link>
+          <Link href="/auth/signup" className="bg-ink text-amber px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-ink/90 transition-colors">Start Free</Link>
         </div>
       </nav>
 
@@ -32,7 +32,7 @@ export default function LandingPage() {
           Connect your WhatsApp, Instagram, and Facebook once. Klovi reads everything, replies automatically, and never misses an order.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/get-started" className="bg-amber hover:bg-amber-dark text-white px-8 py-4 rounded-full text-base font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-amber/30">
+          <Link href="/auth/signup" className="bg-amber hover:bg-amber-dark text-white px-8 py-4 rounded-full text-base font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-amber/30">
             Start Your Business Free <ArrowRight className="w-4 h-4" />
           </Link>
           <Link href="#how-it-works" className="text-warm-gray hover:text-ink px-6 py-4 rounded-full text-base font-medium transition-colors">See how it works</Link>
@@ -152,7 +152,7 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link href="/get-started" className={`block text-center py-3 rounded-full text-sm font-semibold transition-colors ${plan.featured ? 'bg-ink text-amber hover:bg-ink/90' : 'bg-white/10 hover:bg-white/20'}`}>{plan.cta}</Link>
+                <Link href="/auth/signup" className={`block text-center py-3 rounded-full text-sm font-semibold transition-colors ${plan.featured ? 'bg-ink text-amber hover:bg-ink/90' : 'bg-white/10 hover:bg-white/20'}`}>{plan.cta}</Link>
               </div>
             ))}
           </div>
@@ -163,7 +163,7 @@ export default function LandingPage() {
       <section className="px-6 md:px-12 py-20 text-center">
         <h2 className="font-display text-3xl md:text-4xl font-black mb-4">Ready to run your business like a pro?</h2>
         <p className="text-warm-gray mb-8 max-w-md mx-auto">Join home sellers who stopped losing orders and started growing.</p>
-        <Link href="/get-started" className="inline-flex items-center gap-2 bg-amber hover:bg-amber-dark text-white px-8 py-4 rounded-full text-base font-semibold transition-colors shadow-lg shadow-amber/30">
+        <Link href="/auth/signup" className="inline-flex items-center gap-2 bg-amber hover:bg-amber-dark text-white px-8 py-4 rounded-full text-base font-semibold transition-colors shadow-lg shadow-amber/30">
           Start Free Today <ArrowRight className="w-4 h-4" />
         </Link>
       </section>
