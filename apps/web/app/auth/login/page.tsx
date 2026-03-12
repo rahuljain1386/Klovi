@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
+const OWNER_EMAILS = ['meetrj1386@gmail.com', 'shefalijain@gmail.com'];
+
 type AuthMethod = 'email' | 'phone';
 
 export default function LoginPage() {
@@ -44,7 +46,13 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.push('/dashboard');
+
+    // Admin users go to /admin, sellers go to /dashboard
+    if (OWNER_EMAILS.includes(email.toLowerCase())) {
+      router.push('/admin');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   const sendOtp = async () => {
@@ -83,7 +91,14 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.push('/dashboard');
+
+    // Check if admin after OTP login
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email && OWNER_EMAILS.includes(user.email.toLowerCase())) {
+      router.push('/admin');
+    } else {
+      router.push('/dashboard');
+    }
   };
 
   return (

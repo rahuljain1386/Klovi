@@ -88,11 +88,25 @@ export default async function SellerStorefront({ params }: Props) {
   const { data: reviews } = await supabase.from('reviews').select('*, customers(name)').eq('seller_id', seller.id).eq('status', 'published').order('created_at', { ascending: false }).limit(10);
 
   const sym = seller.country === 'india' ? '₹' : '$';
-  // All WhatsApp links go to Klovi's Gupshup number — AI handles routing
-  const KLOVI_WA_NUMBER = '918854054503';
-  const waNum = KLOVI_WA_NUMBER;
-  const hasWa = true;
-  const waLink = `https://wa.me/${KLOVI_WA_NUMBER}?text=${encodeURIComponent(`Hi! I'm interested in ordering from *${seller.business_name}* (klovi/${seller.slug}). Can you help me? 🙏`)}`;
+
+  // WhatsApp number logic:
+  // Free tier → customer talks directly to seller's personal number
+  // Growth/Pro → customer goes through Klovi's AI number (Gupshup)
+  const KLOVI_WA_NUMBER = process.env.NEXT_PUBLIC_KLOVI_WA_NUMBER || '918854054503';
+  const sellerPersonalWa = (seller.whatsapp_number || seller.phone || '').replace(/\D/g, '');
+  const orderWaNumber = seller.plan === 'free'
+    ? sellerPersonalWa
+    : KLOVI_WA_NUMBER;
+  const hasWa = !!orderWaNumber;
+  // Contact bar WhatsApp → always seller's personal number (direct message, not order flow)
+  const contactWaNumber = sellerPersonalWa;
+  const contactWaLink = contactWaNumber
+    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw your shop on Klovi (${seller.slug}). 🙏`)}`
+    : '';
+  // Order flow WhatsApp link (sticky bar + storefront)
+  const waLink = hasWa
+    ? `https://wa.me/${orderWaNumber}?text=${encodeURIComponent(`Hi! I'm interested in ordering from *${seller.business_name}* (klovi/${seller.slug}). Can you help me? 🙏`)}`
+    : '';
   const theme = getTheme(seller.category);
   const fulfillment = seller.fulfillment_modes || ['pickup'];
   const isVerified = seller.is_verified || seller.phone_verified;
@@ -178,10 +192,10 @@ export default async function SellerStorefront({ params }: Props) {
           </div>
         </div>
 
-        {/* ═══ CONTACT BAR ═══ */}
+        {/* ═══ CONTACT BAR — always links to seller's personal number ═══ */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-white">
-          {hasWa ? (
-            <a href={waLink} target="_blank" rel="noopener noreferrer"
+          {contactWaNumber ? (
+            <a href={contactWaLink} target="_blank" rel="noopener noreferrer"
               className="flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
               💬 WhatsApp
             </a>
@@ -221,7 +235,7 @@ export default async function SellerStorefront({ params }: Props) {
           <StorefrontProducts
             products={(products || []) as any}
             seller={seller as any}
-            waNumber={waNum}
+            waNumber={orderWaNumber}
             businessName={seller.business_name}
             category={seller.category || ''}
           />

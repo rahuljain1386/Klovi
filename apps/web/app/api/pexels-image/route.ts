@@ -1,16 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServiceRoleClient } from '@/lib/supabase/server'
 
-const imageCache = new Map<string, string | null>()
+// Cache with 24-hour TTL
+const imageCache = new Map<string, { url: string | null; ts: number }>()
+const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get('query')
+  const productId = req.nextUrl.searchParams.get('product_id')
   if (!query) {
     return NextResponse.json({ url: null })
   }
 
-  // Check cache
-  if (imageCache.has(query)) {
-    return NextResponse.json({ url: imageCache.get(query) })
+  // Check cache (with TTL)
+  const cached = imageCache.get(query)
+  if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    // Still persist if product_id provided and we have a URL
+    if (productId && cached.url) {
+      persistImage(productId, cached.url)
+    }
+    return NextResponse.json({ url: cached.url })
   }
 
   const apiKey = process.env.PEXELS_API_KEY
@@ -25,18 +34,38 @@ export async function GET(req: NextRequest) {
     )
 
     if (!res.ok) {
-      imageCache.set(query, null)
+      imageCache.set(query, { url: null, ts: Date.now() })
       return NextResponse.json({ url: null })
     }
 
     const data = await res.json()
     const photo = data.photos?.[1] || data.photos?.[0]
-    const url = photo?.src?.medium || null
+    const url: string | null = photo?.src?.medium || null
 
-    imageCache.set(query, url)
+    imageCache.set(query, { url, ts: Date.now() })
+
+    // Persist to product record so we never re-fetch
+    if (productId && url) {
+      persistImage(productId, url)
+    }
+
     return NextResponse.json({ url })
   } catch {
-    imageCache.set(query, null)
+    imageCache.set(query, { url: null, ts: Date.now() })
     return NextResponse.json({ url: null })
   }
+}
+
+/** Save fetched image URL to products.images (fire-and-forget, only if empty) */
+function persistImage(productId: string, url: string) {
+  try {
+    const supabase = createServiceRoleClient()
+    // Only update if images is empty (don't overwrite seller-uploaded images)
+    supabase
+      .from('products')
+      .update({ images: [url] })
+      .eq('id', productId)
+      .or('images.is.null,images.eq.{}')
+      .then(() => {})
+  } catch {}
 }

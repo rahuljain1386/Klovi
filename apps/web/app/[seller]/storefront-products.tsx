@@ -11,7 +11,7 @@ interface Product {
   price: number;
   category: string | null;
   images: string[] | null;
-  enhanced_images: { url: string }[] | null;
+  enhanced_images: string[] | null;
   variants: any;
   status: string;
   lead_time_hours?: number;
@@ -118,19 +118,19 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
 
   // Image helper
   function getImg(p: Product): string | null {
-    return p.images?.[0] || p.enhanced_images?.[0]?.url || productImages[p.id] || null;
+    return p.images?.[0] || p.enhanced_images?.[0] || productImages[p.id] || null;
   }
 
   // Fetch Pexels images for products without images
   useEffect(() => {
-    const noImage = products.filter(p => !p.images?.[0] && !p.enhanced_images?.[0]?.url);
+    const noImage = products.filter(p => !p.images?.[0] && !p.enhanced_images?.[0]);
     if (noImage.length === 0) return;
 
     const fetchBatch = async (batch: Product[]) => {
       await Promise.all(batch.map(async (product) => {
         try {
           const query = `${product.name} indian`;
-          const res = await fetch(`/api/pexels-image?query=${encodeURIComponent(query)}`);
+          const res = await fetch(`/api/pexels-image?query=${encodeURIComponent(query)}&product_id=${product.id}`);
           const { url } = await res.json();
           if (url) {
             setProductImages(prev => ({ ...prev, [product.id]: url }));

@@ -22,7 +22,7 @@ interface AIResponse {
   reply: string
   confidence: number
   intent: 'order' | 'inquiry' | 'complaint' | 'greeting' | 'other'
-  extracted_items?: { product_id: string; quantity: number }[]
+  extracted_items?: { product_id: string; quantity: number; product_name?: string; variant?: string; price?: number }[]
   fulfillment_type?: 'pickup' | 'delivery'
   pickup_date?: string
   pickup_time?: string
@@ -205,15 +205,17 @@ Respond in JSON format:
   "reply": "your message to the customer",
   "confidence": 0.0 to 1.0,
   "intent": "order" | "inquiry" | "complaint" | "greeting" | "other",
-  "extracted_items": [{"product_id": "uuid", "quantity": 1}],
+  "extracted_items": [{"product_id": "uuid", "product_name": "name", "variant": "variant label", "price": 500, "quantity": 1}],
   "fulfillment_type": "pickup" | "delivery",
   "pickup_date": "YYYY-MM-DD",
   "pickup_time": "HH:MM",
   "delivery_address": "full address string"
 }
 
-Notes on fields:
-- extracted_items: only when intent is "order" and customer confirmed
+INTENT RULES:
+- "inquiry": customer mentions or asks about a product but hasn't said "yes confirm" yet. E.g. "I want a blouse", "how much is cake", "do you have red velvet"
+- "order": customer explicitly confirms. E.g. "yes confirm", "book it", "place the order"
+- extracted_items: include whenever customer mentions products — for BOTH inquiry AND order intents. Include product_name, variant, price from catalog.
 - fulfillment_type: only when customer specified pickup or delivery
 - pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates (tomorrow, Saturday) to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
 - delivery_address: only when customer gave their address`
@@ -547,7 +549,46 @@ Deno.serve(async (req: Request) => {
       created_at: new Date().toISOString(),
     })
 
-    // 9. If intent is order, create the order + send confirmation + deposit link
+    // 9. Create or update leads based on intent
+    if (aiResponse.intent === 'inquiry' && aiResponse.extracted_items?.length) {
+      // Create a lead for each extracted item
+      for (const item of aiResponse.extracted_items) {
+        // Check if a lead already exists for this product in this conversation
+        const { data: existingLead } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('conversation_id', conversationId)
+          .eq('product_name', item.product_name ?? item.product_id)
+          .in('status', ['new'])
+          .limit(1)
+          .single()
+
+        if (!existingLead) {
+          await supabase.from('leads').insert({
+            conversation_id: conversationId,
+            customer_id: customer.id,
+            seller_id: seller_id,
+            product_name: item.product_name ?? null,
+            variant: item.variant ?? null,
+            quantity: item.quantity ?? 1,
+            price: item.price ?? null,
+            status: 'new',
+            created_at: new Date().toISOString(),
+          })
+        }
+      }
+    }
+
+    if (aiResponse.intent === 'order') {
+      // Update existing leads for this conversation to 'confirmed'
+      await supabase
+        .from('leads')
+        .update({ status: 'confirmed' })
+        .eq('conversation_id', conversationId)
+        .eq('status', 'new')
+    }
+
+    // 10. If intent is order, create the order + send confirmation + deposit link
     let order = null
     if (aiResponse.intent === 'order' && aiResponse.extracted_items?.length) {
       try {
@@ -561,6 +602,13 @@ Deno.serve(async (req: Request) => {
           aiResponse.pickup_time,
           aiResponse.delivery_address
         )
+
+        // Update leads to 'forwarded' now that order exists
+        await supabase
+          .from('leads')
+          .update({ status: 'forwarded' })
+          .eq('conversation_id', conversationId)
+          .eq('status', 'confirmed')
 
         // Build and send order confirmation message
         const sellerName = sellerContext.seller?.business_name || 'Shop'
@@ -620,12 +668,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // 10. If NOT confident — alert seller
+    // 11. If NOT confident — alert seller
     if (!isConfident) {
       await alertSeller(seller_id, customer.id, from, body, channel)
     }
 
-    // 11. Update conversation
+    // 12. Update conversation
     await supabase
       .from('conversations')
       .update({
@@ -637,7 +685,7 @@ Deno.serve(async (req: Request) => {
       })
       .eq('id', conversationId)
 
-    // 12. Update order with fulfillment details if provided separately
+    // 13. Update order with fulfillment details if provided separately
     if (!order && (aiResponse.fulfillment_type || aiResponse.pickup_date || aiResponse.delivery_address)) {
       // Check if there's an active order in this conversation
       const { data: activeOrder } = await supabase
