@@ -66,21 +66,21 @@ export default function AdminOverview() {
   }, []);
 
   if (loading) {
-    return <div className="text-white/40 py-12 text-center">Loading stats...</div>;
+    return <div className="text-warm-gray py-12 text-center">Loading stats...</div>;
   }
 
   const cards = [
-    { label: 'Total Sellers', value: stats.totalSellers, color: 'bg-blue-500/20 text-blue-400' },
-    { label: 'Active Sellers', value: stats.activeSellers, color: 'bg-green-500/20 text-green-400' },
-    { label: 'Total Orders', value: stats.totalOrders, color: 'bg-amber/20 text-amber' },
-    { label: 'Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, color: 'bg-purple-500/20 text-purple-400' },
-    { label: 'Customers', value: stats.totalCustomers, color: 'bg-teal/20 text-teal' },
-    { label: 'Unrouted', value: stats.unresolvedUnrouted, color: stats.unresolvedUnrouted > 0 ? 'bg-rose/20 text-rose' : 'bg-white/10 text-white/40' },
+    { label: 'Total Sellers', value: stats.totalSellers, color: 'bg-blue-50 text-blue-600' },
+    { label: 'Active Sellers', value: stats.activeSellers, color: 'bg-green-50 text-green-600' },
+    { label: 'Total Orders', value: stats.totalOrders, color: 'bg-amber-50 text-amber-600' },
+    { label: 'Revenue', value: `₹${stats.totalRevenue.toLocaleString('en-IN')}`, color: 'bg-purple-50 text-purple-600' },
+    { label: 'Customers', value: stats.totalCustomers, color: 'bg-teal-50 text-teal-600' },
+    { label: 'Unrouted', value: stats.unresolvedUnrouted, color: stats.unresolvedUnrouted > 0 ? 'bg-rose-50 text-rose-600' : 'bg-gray-50 text-gray-400' },
   ];
 
   return (
     <div>
-      <h1 className="text-2xl font-display text-white mb-6">Platform Overview</h1>
+      <h1 className="text-2xl font-display text-ink mb-6">Platform Overview</h1>
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
@@ -93,35 +93,35 @@ export default function AdminOverview() {
       </div>
 
       {/* Recent sellers */}
-      <div className="bg-[#161822] rounded-xl border border-white/10">
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="text-white font-medium">Recent Sellers</h2>
+      <div className="bg-white rounded-xl border border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="text-ink font-medium">Recent Sellers</h2>
           <Link href="/admin/sellers" className="text-xs text-amber hover:underline">View all →</Link>
         </div>
         {recentSellers.length === 0 ? (
-          <div className="p-8 text-center text-white/40">No sellers yet</div>
+          <div className="p-8 text-center text-warm-gray">No sellers yet</div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-border">
             {recentSellers.map((s) => (
               <div key={s.id} className="flex items-center gap-4 px-4 py-3">
-                <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-lg">
+                <div className="w-9 h-9 rounded-full bg-amber/10 flex items-center justify-center text-lg font-medium text-amber">
                   {s.business_name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-white font-medium truncate">{s.business_name}</div>
-                  <div className="text-xs text-white/40">{s.category} · {s.city}</div>
+                  <div className="text-sm text-ink font-medium truncate">{s.business_name}</div>
+                  <div className="text-xs text-warm-gray">{s.category} · {s.city}</div>
                 </div>
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                  s.status === 'active' ? 'bg-green-500/20 text-green-400' :
-                  s.status === 'onboarding' ? 'bg-amber/20 text-amber' :
-                  'bg-white/10 text-white/40'
+                  s.status === 'active' ? 'bg-green-50 text-green-600' :
+                  s.status === 'onboarding' ? 'bg-amber-50 text-amber-600' :
+                  'bg-gray-100 text-gray-400'
                 }`}>
                   {s.status.toUpperCase()}
                 </span>
                 <Link
                   href={`/${s.slug}`}
                   target="_blank"
-                  className="text-xs text-white/30 hover:text-white/60"
+                  className="text-xs text-warm-gray hover:text-ink"
                 >
                   ↗
                 </Link>

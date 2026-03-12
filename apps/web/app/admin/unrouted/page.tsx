@@ -84,9 +84,9 @@ export default function AdminUnrouted() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <h1 className="text-2xl font-display text-white">Unrouted Messages</h1>
+        <h1 className="text-2xl font-display text-ink">Unrouted Messages</h1>
         {unresolvedCount > 0 && (
-          <span className="bg-rose/20 text-rose text-xs font-semibold px-2.5 py-0.5 rounded-full">
+          <span className="bg-rose-50 text-rose-600 text-xs font-semibold px-2.5 py-0.5 rounded-full">
             {unresolvedCount} pending
           </span>
         )}
@@ -99,7 +99,7 @@ export default function AdminUnrouted() {
             key={f}
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-              filter === f ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70'
+              filter === f ? 'bg-ink text-white' : 'text-warm-gray hover:text-ink bg-white border border-border'
             }`}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -108,54 +108,54 @@ export default function AdminUnrouted() {
       </div>
 
       {loading ? (
-        <div className="text-white/40 py-12 text-center">Loading...</div>
+        <div className="text-warm-gray py-12 text-center">Loading...</div>
       ) : messages.length === 0 ? (
-        <div className="text-center text-white/30 py-16 bg-[#161822] rounded-xl border border-white/10">
+        <div className="text-center text-warm-gray py-16 bg-white rounded-xl border border-border">
           {filter === 'unresolved' ? 'No unresolved messages' : 'No messages found'}
         </div>
       ) : (
         <div className="space-y-3">
           {messages.map(m => (
-            <div key={m.id} className={`bg-[#161822] rounded-xl border p-4 ${
-              m.resolved ? 'border-white/5 opacity-60' : 'border-white/10'
+            <div key={m.id} className={`bg-white rounded-xl border p-4 ${
+              m.resolved ? 'border-border opacity-60' : 'border-border'
             }`}>
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   {/* Header */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-white font-mono text-sm">{m.from_phone}</span>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-ink font-mono text-sm">{m.from_phone}</span>
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                      m.reason === 'no_match' ? 'bg-rose/20 text-rose' :
-                      'bg-amber/20 text-amber'
+                      m.reason === 'no_match' ? 'bg-rose-50 text-rose-600' :
+                      'bg-amber-50 text-amber-600'
                     }`}>
                       {m.reason === 'no_match' ? 'NO MATCH' : 'AMBIGUOUS'}
                     </span>
-                    <span className="text-[10px] text-white/20">{m.channel}</span>
-                    <span className="text-[10px] text-white/20">
+                    <span className="text-[10px] text-warm-gray">{m.channel}</span>
+                    <span className="text-[10px] text-warm-gray">
                       {new Date(m.created_at).toLocaleString('en-IN', {
                         day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
                       })}
                     </span>
                     {m.resolved && (
-                      <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">RESOLVED</span>
+                      <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full">RESOLVED</span>
                     )}
                   </div>
 
                   {/* Message */}
-                  <div className="text-sm text-white/70 bg-white/5 rounded-lg p-3 mb-2">
+                  <div className="text-sm text-ink bg-cream rounded-lg p-3 mb-2">
                     {m.message_text || '(no text)'}
                   </div>
 
                   {/* Candidate sellers */}
                   {m.candidate_sellers && m.candidate_sellers.length > 0 && (
                     <div className="mb-2">
-                      <span className="text-[10px] text-white/30 block mb-1">Candidates:</span>
+                      <span className="text-[10px] text-warm-gray block mb-1">Candidates:</span>
                       <div className="flex gap-1.5 flex-wrap">
                         {m.candidate_sellers.map(cs => (
                           <button
                             key={cs.id}
                             onClick={() => assignSeller(m.id, cs.id)}
-                            className="text-xs bg-blue-500/10 text-blue-400 px-2.5 py-1 rounded-lg hover:bg-blue-500/20 transition-colors"
+                            className="text-xs bg-blue-50 text-blue-600 px-2.5 py-1 rounded-lg hover:bg-blue-100 transition-colors"
                           >
                             Assign → {cs.name}
                           </button>
@@ -173,7 +173,7 @@ export default function AdminUnrouted() {
                         <select
                           value={selectedSeller}
                           onChange={(e) => setSelectedSeller(e.target.value)}
-                          className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white"
+                          className="border border-border rounded-lg px-2 py-1.5 text-xs text-ink bg-white"
                         >
                           <option value="">Pick seller...</option>
                           {sellers.map(s => (
@@ -183,13 +183,13 @@ export default function AdminUnrouted() {
                         <button
                           onClick={() => selectedSeller && assignSeller(m.id, selectedSeller)}
                           disabled={!selectedSeller}
-                          className="text-xs bg-amber text-ink px-2.5 py-1.5 rounded-lg font-medium disabled:opacity-30"
+                          className="text-xs bg-amber text-white px-2.5 py-1.5 rounded-lg font-medium disabled:opacity-30"
                         >
                           Assign
                         </button>
                         <button
                           onClick={() => { setAssigning(null); setSelectedSeller(''); }}
-                          className="text-xs text-white/30 hover:text-white"
+                          className="text-xs text-warm-gray hover:text-ink"
                         >
                           ✕
                         </button>
@@ -198,13 +198,13 @@ export default function AdminUnrouted() {
                       <>
                         <button
                           onClick={() => setAssigning(m.id)}
-                          className="text-xs bg-white/5 text-white/60 px-3 py-1.5 rounded-lg hover:bg-white/10"
+                          className="text-xs bg-cream text-ink px-3 py-1.5 rounded-lg hover:bg-border border border-border"
                         >
                           Assign to seller
                         </button>
                         <button
                           onClick={() => markResolved(m.id)}
-                          className="text-xs text-white/30 hover:text-white/60"
+                          className="text-xs text-warm-gray hover:text-ink"
                         >
                           Dismiss
                         </button>

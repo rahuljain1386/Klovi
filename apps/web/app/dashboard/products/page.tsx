@@ -22,6 +22,12 @@ export default function ProductsPage() {
   const [sellerId, setSellerId] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '', currency: 'USD' });
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  // Edit state
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; description: string; price: string }>({ name: '', description: '', price: '' });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     loadProducts();
@@ -51,6 +57,18 @@ export default function ProductsPage() {
     setProducts((data as Product[]) || []);
   };
 
+  const uploadImage = async (file: File, productId: string): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('product_id', productId);
+    try {
+      const res = await fetch('/api/upload-product-image', { method: 'POST', body: formData });
+      if (!res.ok) return null;
+      const { url } = await res.json();
+      return url || null;
+    } catch { return null; }
+  };
+
   const toggleAvailability = async (product: Product) => {
     const supabase = createClient();
     await supabase.from('products').update({ is_available: !product.is_available }).eq('id', product.id);
@@ -66,6 +84,7 @@ export default function ProductsPage() {
 
   const addProduct = async () => {
     if (!newProduct.name || !newProduct.price) return;
+    setSaving(true);
     const supabase = createClient();
     const { data } = await supabase
       .from('products')
@@ -82,10 +101,52 @@ export default function ProductsPage() {
       .single();
 
     if (data) {
-      setProducts([...products, data as Product]);
+      let finalProduct = data as Product;
+      if (newImageFile) {
+        const url = await uploadImage(newImageFile, data.id);
+        if (url) {
+          await supabase.from('products').update({ images: [url] }).eq('id', data.id);
+          finalProduct = { ...finalProduct, images: [url] };
+        }
+      }
+      setProducts([...products, finalProduct]);
       setNewProduct({ name: '', description: '', price: '', currency: newProduct.currency });
+      setNewImageFile(null);
       setShowAdd(false);
     }
+    setSaving(false);
+  };
+
+  const startEdit = (product: Product) => {
+    setEditingProduct(product);
+    setEditForm({ name: product.name, description: product.description || '', price: String(product.price) });
+    setEditImageFile(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editingProduct) return;
+    setSaving(true);
+    const supabase = createClient();
+
+    let images = editingProduct.images;
+    if (editImageFile) {
+      const url = await uploadImage(editImageFile, editingProduct.id);
+      if (url) images = [url];
+    }
+
+    await supabase.from('products').update({
+      name: editForm.name,
+      description: editForm.description || null,
+      price: parseFloat(editForm.price),
+      images,
+    }).eq('id', editingProduct.id);
+
+    setProducts(prev => prev.map(p =>
+      p.id === editingProduct.id ? { ...p, name: editForm.name, description: editForm.description || null, price: parseFloat(editForm.price), images } as Product : p
+    ));
+    setEditingProduct(null);
+    setEditImageFile(null);
+    setSaving(false);
   };
 
   const deleteProduct = async (id: string) => {
@@ -118,7 +179,7 @@ export default function ProductsPage() {
       {showAdd && (
         <div className="bg-white rounded-xl p-6 border border-[#e7e0d4] mb-6">
           <h2 className="font-semibold text-ink mb-4">New Product</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="text"
               placeholder="Product name"
@@ -140,16 +201,21 @@ export default function ProductsPage() {
               onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
               className="px-4 py-3 border border-[#e7e0d4] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber"
             />
+            <label className="flex items-center gap-2 px-4 py-3 border border-[#e7e0d4] rounded-lg cursor-pointer hover:border-amber text-warm-gray">
+              <span>{newImageFile ? newImageFile.name : 'Choose product image...'}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={e => setNewImageFile(e.target.files?.[0] || null)} />
+            </label>
           </div>
           <div className="flex gap-3 mt-4">
             <button
               onClick={addProduct}
-              className="px-5 py-2 bg-ink text-white rounded-lg font-semibold hover:bg-ink/90"
+              disabled={saving}
+              className="px-5 py-2 bg-ink text-white rounded-lg font-semibold hover:bg-ink/90 disabled:opacity-50"
             >
-              Save
+              {saving ? 'Saving...' : 'Save'}
             </button>
             <button
-              onClick={() => setShowAdd(false)}
+              onClick={() => { setShowAdd(false); setNewImageFile(null); }}
               className="px-5 py-2 text-warm-gray hover:text-ink"
             >
               Cancel
@@ -226,6 +292,13 @@ export default function ProductsPage() {
                   </label>
 
                   <button
+                    onClick={() => startEdit(product)}
+                    className="text-amber hover:underline text-sm"
+                  >
+                    Edit
+                  </button>
+
+                  <button
                     onClick={() => deleteProduct(product.id)}
                     className="text-warm-gray hover:text-rose transition-colors text-sm"
                   >
@@ -235,6 +308,52 @@ export default function ProductsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit product modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setEditingProduct(null); setEditImageFile(null); }}>
+          <div className="bg-white rounded-2xl border border-border w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-border flex items-center justify-between">
+              <h3 className="text-ink font-medium">Edit Product</h3>
+              <button onClick={() => { setEditingProduct(null); setEditImageFile(null); }} className="text-warm-gray hover:text-ink">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Current image */}
+              {(editImageFile || editingProduct.images?.[0]) && (
+                <div className="w-full h-40 rounded-xl overflow-hidden bg-cream">
+                  <img
+                    src={editImageFile ? URL.createObjectURL(editImageFile) : editingProduct.images![0]}
+                    alt={editingProduct.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <label className="flex items-center gap-2 px-3 py-2.5 border border-border rounded-lg text-sm text-warm-gray cursor-pointer hover:border-amber w-full">
+                <span>{editImageFile ? editImageFile.name : 'Choose new image...'}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => setEditImageFile(e.target.files?.[0] || null)} />
+              </label>
+              <div>
+                <label className="text-xs text-warm-gray block mb-1">Name</label>
+                <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+              </div>
+              <div>
+                <label className="text-xs text-warm-gray block mb-1">Description</label>
+                <textarea value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={2} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber resize-none" />
+              </div>
+              <div>
+                <label className="text-xs text-warm-gray block mb-1">Price</label>
+                <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+              </div>
+            </div>
+            <div className="p-5 border-t border-border flex gap-3 justify-end">
+              <button onClick={() => { setEditingProduct(null); setEditImageFile(null); }} className="px-4 py-2 text-sm text-warm-gray hover:text-ink">Cancel</button>
+              <button onClick={saveEdit} disabled={saving} className="px-4 py-2 bg-amber text-white text-sm font-medium rounded-lg hover:bg-amber/90 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

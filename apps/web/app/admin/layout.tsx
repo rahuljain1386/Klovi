@@ -36,20 +36,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-ink flex items-center justify-center">
-        <div className="text-white/60 text-lg">Loading...</div>
+      <div className="min-h-screen bg-cream flex items-center justify-center">
+        <div className="text-warm-gray text-lg">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0f1117] flex">
+    <div className="min-h-screen bg-cream flex">
       {/* Sidebar */}
-      <aside className="w-56 bg-[#161822] border-r border-white/10 flex flex-col fixed h-full">
-        <div className="p-5 border-b border-white/10">
-          <div className="font-display text-xl text-white">KLOVI</div>
+      <aside className="w-56 bg-white border-r border-border flex flex-col fixed h-full shrink-0 z-30">
+        <div className="p-5 border-b border-border">
+          <div className="font-display text-xl text-ink">KLOVI</div>
           <div className="text-[11px] text-amber font-semibold tracking-widest mt-0.5">ADMIN</div>
-          <p className="text-[11px] text-white/40 mt-2 truncate">{email}</p>
+          <p className="text-[11px] text-warm-gray mt-2 truncate">{email}</p>
         </div>
 
         <nav className="flex-1 py-3">
@@ -62,8 +62,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={item.href}
                 className={`flex items-center gap-2.5 px-5 py-2.5 text-sm transition-colors ${
                   isActive
-                    ? 'bg-white/10 text-white border-r-2 border-amber'
-                    : 'text-white/50 hover:text-white hover:bg-white/5'
+                    ? 'bg-amber/10 text-ink border-r-2 border-amber font-medium'
+                    : 'text-warm-gray hover:text-ink hover:bg-cream/50'
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -73,15 +73,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <Link href="/dashboard" className="text-xs text-white/40 hover:text-white/70">
+        <div className="p-4 border-t border-border">
+          <Link href="/dashboard" className="text-xs text-warm-gray hover:text-ink">
             Seller Dashboard →
           </Link>
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 ml-56">
+      {/* Main — min-w prevents collapse on scroll */}
+      <main className="flex-1 ml-56 min-w-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto p-6">
           {children}
         </div>
