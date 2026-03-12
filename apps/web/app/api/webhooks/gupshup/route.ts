@@ -8,6 +8,11 @@ import crypto from 'crypto';
 // Seller routing: extract slug from message text (klovi/seller-slug).
 // ---------------------------------------------------------------------------
 
+// GET handler for Gupshup webhook URL validation
+export async function GET() {
+  return NextResponse.json({ status: 'ok' });
+}
+
 function verifyGupshupSignature(
   rawBody: string,
   signature: string | null,
@@ -100,9 +105,10 @@ export async function POST(request: Request) {
   }
 
   // --- Signature verification ------------------------------------------------
+  // Skip verification if no signature header (Gupshup validation pings)
   const gupshupApiKey = process.env.GUPSHUP_API_KEY;
-  if (gupshupApiKey) {
-    const signature = request.headers.get('x-gupshup-signature');
+  const signature = request.headers.get('x-gupshup-signature');
+  if (gupshupApiKey && signature) {
     if (!verifyGupshupSignature(rawBody, signature, gupshupApiKey)) {
       console.error('Gupshup webhook: invalid signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
