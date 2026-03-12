@@ -16,14 +16,14 @@ interface ReorderNudgePayload {
 
 async function sendViaGupshup(destination: string, message: string) {
   const apiKey = Deno.env.get('GUPSHUP_API_KEY')!
-  const appName = Deno.env.get('GUPSHUP_APP_NAME')!
+  const sourceNumber = Deno.env.get('GUPSHUP_WHATSAPP_NUMBER')!
 
   const params = new URLSearchParams({
     channel: 'whatsapp',
-    source: appName,
+    source: sourceNumber,
     destination,
-    'message.type': 'text',
-    message,
+    'src.name': Deno.env.get('GUPSHUP_APP_NAME') || 'KloviApp',
+    'message': JSON.stringify({ type: 'text', text: message }),
   })
 
   const response = await fetch('https://api.gupshup.io/wa/api/v1/msg', {

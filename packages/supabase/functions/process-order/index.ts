@@ -32,10 +32,26 @@ const STATUS_MAP: Record<string, string> = {
 }
 
 const STATUS_MESSAGES: Record<string, string> = {
-  confirmed: 'Your order has been confirmed! We\'re working on it now.',
-  ready: 'Great news! Your order is ready for pickup/delivery.',
-  completed: 'Your order is complete. Thank you for your business!',
+  confirmed: 'Your order has been confirmed! We\'re working on it now. ✅',
+  ready: 'Great news! Your order is ready! 🎉',
+  completed: 'Your order is complete. Thank you for your business! ⭐',
   cancelled: 'Your order has been cancelled. Please reach out if you have any questions.',
+}
+
+async function generateBalanceLink(orderId: string): Promise<string | null> {
+  const appUrl = Deno.env.get('APP_URL') || Deno.env.get('NEXT_PUBLIC_APP_URL') || 'https://klovi.com'
+  try {
+    const res = await fetch(`${appUrl}/api/checkout/balance`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.payment_url ?? null
+  } catch {
+    return null
+  }
 }
 
 async function getCustomerWithChannel(customerId: string) {
@@ -68,14 +84,14 @@ async function sendNotificationToCustomer(
     if (!customer?.phone) return
 
     const apiKey = Deno.env.get('GUPSHUP_API_KEY')!
-    const appName = Deno.env.get('GUPSHUP_APP_NAME')!
+    const sourceNumber = Deno.env.get('GUPSHUP_WHATSAPP_NUMBER')!
 
     const params = new URLSearchParams({
       channel: 'whatsapp',
-      source: appName,
+      source: sourceNumber,
       destination: customer.phone,
-      'message.type': 'text',
-      message,
+      'src.name': Deno.env.get('GUPSHUP_APP_NAME') || 'KloviApp',
+      'message': JSON.stringify({ type: 'text', text: message }),
     })
 
     await fetch('https://api.gupshup.io/wa/api/v1/msg', {
@@ -305,6 +321,21 @@ Deno.serve(async (req: Request) => {
             statusMessage,
             customerData.channel ?? 'whatsapp'
           )
+
+          // For 'ready' orders — send balance payment link
+          if (action === 'ready' && order.balance_amount > 0) {
+            const balanceUrl = await generateBalanceLink(order_id)
+            if (balanceUrl) {
+              const sym = order.currency === 'INR' ? '₹' : '$'
+              const balanceMsg = `💳 *Balance Due: ${sym}${order.balance_amount}*\n\nPay here: ${balanceUrl}\n\nYour order is ready and waiting for you!`
+              await sendNotificationToCustomer(
+                seller_id,
+                customerData.id,
+                balanceMsg,
+                customerData.channel ?? 'whatsapp'
+              )
+            }
+          }
         }
       }
 

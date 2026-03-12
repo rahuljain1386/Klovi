@@ -35,13 +35,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const { data: seller } = await supabase
         .from('sellers')
-        .select('business_name')
+        .select('business_name, status')
         .eq('user_id', user.id)
         .single();
 
-      if (seller) {
-        setSellerName(seller.business_name);
+      if (!seller) {
+        router.push('/auth/signup');
+        return;
       }
+
+      if (seller.status === 'onboarding') {
+        router.push('/onboarding');
+        return;
+      }
+
+      setSellerName(seller.business_name);
       setLoading(false);
     };
 

@@ -13,6 +13,8 @@ type Product = {
   track_stock: boolean;
   stock_quantity: number | null;
   image_url: string | null;
+  images: string[] | null;
+  category: string | null;
 };
 
 export default function ProductsPage() {
@@ -166,7 +168,17 @@ export default function ProductsPage() {
           {products.map((product) => (
             <div key={product.id} className="bg-white rounded-xl p-5 border border-[#e7e0d4]">
               <div className="flex items-center justify-between">
-                <div className="flex-1">
+                <div className="flex items-center gap-4 flex-1">
+                  {/* Product image */}
+                  {(() => {
+                    const img = product.images?.[0] || product.image_url;
+                    return img ? (
+                      <img src={img} alt={product.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-border" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl bg-amber/10 flex items-center justify-center flex-shrink-0 text-xl">📦</div>
+                    );
+                  })()}
+                  <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     <h3 className="font-semibold text-ink">{product.name}</h3>
                     <span className={`text-sm font-medium ${product.is_available ? 'text-green' : 'text-warm-gray'}`}>
@@ -179,6 +191,7 @@ export default function ProductsPage() {
                   <p className="text-lg font-bold text-ink mt-1">
                     {product.currency === 'INR' ? '\u20B9' : '$'}{product.price}
                   </p>
+                </div>
                 </div>
 
                 <div className="flex items-center gap-4">

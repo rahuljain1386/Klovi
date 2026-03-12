@@ -36,6 +36,8 @@ export default function SignupPage() {
       plan: 'free',
       country: 'usa',
       language: 'en',
+      city: '',
+      phone: '',
     });
   };
 
@@ -44,11 +46,14 @@ export default function SignupPage() {
     if (businessName) {
       localStorage.setItem('klovi_pending_business', businessName);
     }
+    // If coming from test-idea flow, redirect back there after auth
+    const pendingIdea = localStorage.getItem('klovi_test_idea');
+    const redirectPath = pendingIdea ? '/test-idea' : '/onboarding';
     const supabase = createClient();
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${redirectPath}`,
       },
     });
   };
@@ -74,7 +79,9 @@ export default function SignupPage() {
     if (authData.user) {
       await createSellerProfile(authData.user.id);
     }
-    router.push('/dashboard');
+    // If coming from test-idea flow, redirect back there
+    const pendingIdea = localStorage.getItem('klovi_test_idea');
+    router.push(pendingIdea ? '/test-idea' : '/onboarding');
   };
 
   const sendOtp = async () => {
@@ -127,7 +134,7 @@ export default function SignupPage() {
         await createSellerProfile(data.user.id);
       }
     }
-    router.push('/dashboard');
+    router.push('/onboarding');
   };
 
   return (

@@ -361,8 +361,11 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+[edge_runtime.secrets]
+GUPSHUP_API_KEY = "env(GUPSHUP_API_KEY)"
+GUPSHUP_APP_NAME = "env(GUPSHUP_APP_NAME)"
+GUPSHUP_WHATSAPP_NUMBER = "env(GUPSHUP_WHATSAPP_NUMBER)"
+OPENAI_API_KEY = "env(OPENAI_API_KEY)"
 
 [analytics]
 enabled = true

@@ -4,13 +4,10 @@ import crypto from 'crypto';
 
 // ---------------------------------------------------------------------------
 // Gupshup Webhook - receives WhatsApp / Instagram / Facebook messages
+// All messages come to Klovi's single WhatsApp number (918854054503).
+// Seller routing: extract slug from message text (klovi/seller-slug).
 // ---------------------------------------------------------------------------
 
-/**
- * Validate the Gupshup webhook signature.
- * Gupshup signs the raw body with HMAC-SHA512 using the API key and sends it
- * in the `x-gupshup-signature` header.
- */
 function verifyGupshupSignature(
   rawBody: string,
   signature: string | null,
@@ -27,9 +24,6 @@ function verifyGupshupSignature(
   );
 }
 
-/**
- * Determine the messaging channel from the Gupshup payload type field.
- */
 function resolveChannel(type: string | undefined): string {
   if (!type) return 'whatsapp';
   const t = type.toLowerCase();
@@ -38,9 +32,6 @@ function resolveChannel(type: string | undefined): string {
   return 'whatsapp';
 }
 
-/**
- * Extract a media URL from the Gupshup message payload if present.
- */
 function extractMediaUrl(
   innerPayload: Record<string, unknown> | undefined,
 ): string | null {
@@ -50,6 +41,54 @@ function extractMediaUrl(
     return (innerPayload.url as string) || (innerPayload.originalUrl as string) || null;
   }
   return null;
+}
+
+/**
+ * Extract seller slug from message text.
+ * Looks for patterns like:
+ * - "klovi/renu-stitching"
+ * - "(klovi/renu-stitching)"
+ * - "from *Renu Stitching* (klovi/renu-stitching)"
+ */
+function extractSlug(text: string): string | null {
+  // Pattern: klovi/slug-name
+  const match = text.match(/klovi\/([a-z0-9-]+)/i);
+  return match ? match[1].toLowerCase() : null;
+}
+
+/**
+ * Extract business name from message text as fallback.
+ * Looks for: "from *Business Name*" or "ordering from *Business Name*"
+ */
+function extractBusinessName(text: string): string | null {
+  const match = text.match(/from\s+\*([^*]+)\*/i);
+  return match ? match[1].trim() : null;
+}
+
+/**
+ * Send a reply to a customer via Gupshup WhatsApp.
+ */
+async function sendGupshupReply(destination: string, message: string) {
+  const apiKey = process.env.GUPSHUP_API_KEY;
+  const sourceNumber = process.env.GUPSHUP_WHATSAPP_NUMBER;
+  if (!apiKey || !sourceNumber) return;
+
+  const params = new URLSearchParams({
+    channel: 'whatsapp',
+    source: sourceNumber,
+    destination: destination.replace(/\D/g, ''),
+    'src.name': process.env.GUPSHUP_APP_NAME || 'KloviApp',
+    'message': JSON.stringify({ type: 'text', text: message }),
+  });
+
+  await fetch('https://api.gupshup.io/wa/api/v1/msg', {
+    method: 'POST',
+    headers: {
+      'apikey': apiKey,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  }).catch(err => console.error('sendGupshupReply error:', err));
 }
 
 export async function POST(request: Request) {
@@ -79,19 +118,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Gupshup sends: { app, payload: { type, id, source, payload: { text, type } } }
     const outerPayload = body.payload as Record<string, unknown> | undefined;
     if (!outerPayload) {
-      // Could be a status callback (message-event) -- acknowledge and ignore
       return NextResponse.json({ status: 'ok' });
     }
 
     const messageType = outerPayload.type as string | undefined;
     const messageId = outerPayload.id as string | undefined;
-    const source = outerPayload.source as string | undefined; // sender phone/id
-    const destination = outerPayload.destination as string | undefined; // seller phone
+    const source = outerPayload.source as string | undefined;
+    const destination = outerPayload.destination as string | undefined;
 
-    // The inner payload contains the actual message content
     const innerPayload = outerPayload.payload as Record<string, unknown> | undefined;
     const text = (innerPayload?.text as string) || '';
     const mediaUrl = extractMediaUrl(innerPayload);
@@ -102,26 +138,95 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: 'ok' });
     }
 
-    // --- Look up seller by connected phone number ----------------------------
     const supabase = createServiceRoleClient();
 
-    // Normalize phone: strip leading '+' for matching
-    const normalizedDestination = (destination || '').replace(/^\+/, '');
+    // --- Route to seller: extract slug from message text ---------------------
+    let seller: { id: string; business_name: string; phone: string | null } | null = null;
 
-    const { data: seller, error: sellerError } = await supabase
-      .from('sellers')
-      .select('id, business_name, phone')
-      .or(`phone.eq.${normalizedDestination},phone.eq.+${normalizedDestination}`)
-      .limit(1)
-      .maybeSingle();
-
-    if (sellerError) {
-      console.error('Gupshup webhook: seller lookup error', sellerError);
-      return NextResponse.json({ status: 'ok' }); // still 200 to prevent retries
+    // Method 1: Extract slug from message (e.g., "klovi/renu-stitching")
+    const slug = extractSlug(text);
+    if (slug) {
+      const { data } = await supabase
+        .from('sellers')
+        .select('id, business_name, phone')
+        .eq('slug', slug)
+        .eq('status', 'active')
+        .single();
+      seller = data;
     }
 
+    // Method 2: Extract business name — only use if EXACTLY 1 match
     if (!seller) {
-      console.warn(`Gupshup webhook: no seller found for destination ${destination}`);
+      const bizName = extractBusinessName(text);
+      if (bizName) {
+        const { data: matches } = await supabase
+          .from('sellers')
+          .select('id, business_name, phone')
+          .ilike('business_name', `%${bizName}%`)
+          .eq('status', 'active')
+          .limit(5);
+
+        if (matches?.length === 1) {
+          seller = matches[0];
+        } else if (matches && matches.length > 1) {
+          // Ambiguous — ask customer to clarify
+          const options = matches.map((s, i) => `${i + 1}. ${s.business_name}`).join('\n');
+          const clarifyMsg = `Hi! I found multiple sellers matching that name:\n\n${options}\n\nPlease reply with the number to connect you. 🙏`;
+          await sendGupshupReply(source!, clarifyMsg);
+
+          // Save as unrouted conversation for owner to see
+          await supabase.from('unrouted_messages').insert({
+            from_phone: source,
+            message_text: text,
+            reason: 'ambiguous_match',
+            candidate_sellers: matches.map(s => ({ id: s.id, name: s.business_name })),
+            channel,
+            created_at: new Date().toISOString(),
+          });
+
+          return NextResponse.json({ status: 'ok' });
+        }
+      }
+    }
+
+    // Method 3: Check if this customer has an existing conversation with a seller
+    if (!seller) {
+      const normalizedSource = (source || '').replace(/^\+/, '');
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('seller_id')
+        .or(`phone.eq.${normalizedSource},phone.eq.+${normalizedSource}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingCustomer) {
+        const { data } = await supabase
+          .from('sellers')
+          .select('id, business_name, phone')
+          .eq('id', existingCustomer.seller_id)
+          .single();
+        seller = data;
+      }
+    }
+
+    // Unrouted — save for owner to manually assign
+    if (!seller) {
+      console.warn(`Gupshup webhook: unrouted message from ${source}: "${text.substring(0, 100)}"`);
+
+      // Send a helpful reply
+      const helpMsg = `Hi! Welcome to Klovi 🙏\n\nI couldn't find which seller you're looking for. Could you share the store link or name?\n\nOr browse sellers at kloviapp.com`;
+      await sendGupshupReply(source!, helpMsg);
+
+      // Save unrouted message for owner dashboard
+      await supabase.from('unrouted_messages').insert({
+        from_phone: source,
+        message_text: text,
+        reason: 'no_match',
+        channel,
+        created_at: new Date().toISOString(),
+      });
+
       return NextResponse.json({ status: 'ok' });
     }
 
@@ -142,13 +247,11 @@ export async function POST(request: Request) {
 
     if (fnError) {
       console.error('Gupshup webhook: handle-message invocation error', fnError);
-      // Still return 200 so Gupshup doesn't retry aggressively
     }
 
     return NextResponse.json({ status: 'ok' });
   } catch (error) {
     console.error('Gupshup webhook error:', error);
-    // Return 200 to avoid Gupshup retry storms; the error is logged for debugging
     return NextResponse.json({ status: 'ok' });
   }
 }

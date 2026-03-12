@@ -52,3 +52,6 @@ coverage/
 # Misc
 *.pem
 thumbs.db
+
+# Local Netlify folder
+.netlify

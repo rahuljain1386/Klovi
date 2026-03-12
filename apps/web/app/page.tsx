@@ -35,9 +35,11 @@ export default function LandingPage() {
           <Link href="/auth/signup" className="bg-amber hover:bg-amber-dark text-white px-8 py-4 rounded-full text-base font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-amber/30">
             Start Your Business Free <ArrowRight className="w-4 h-4" />
           </Link>
-          <Link href="#how-it-works" className="text-warm-gray hover:text-ink px-6 py-4 rounded-full text-base font-medium transition-colors">See how it works</Link>
+          <Link href="/test-idea" className="bg-purple-600 hover:bg-purple-500 text-white px-8 py-4 rounded-full text-base font-semibold transition-colors flex items-center gap-2 shadow-lg shadow-purple-600/30">
+            Test your idea first <Zap className="w-4 h-4" />
+          </Link>
         </div>
-        <p className="text-xs text-warm-gray/60 mt-4">No credit card required. Free forever plan available.</p>
+        <p className="text-xs text-warm-gray/60 mt-4">No credit card required. Not sure yet? <Link href="/test-idea" className="text-purple-600 hover:underline font-medium">Test demand before you invest anything</Link>.</p>
       </section>
 
       {/* Stats bar */}

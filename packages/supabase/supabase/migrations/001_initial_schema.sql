@@ -1,14 +1,13 @@
 -- Klovi Database Schema v1.0
 -- Complete schema for home business SaaS platform
 
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 -- ============================================
 -- SELLERS
 -- ============================================
 CREATE TABLE sellers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   business_name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -73,7 +72,7 @@ CREATE INDEX idx_sellers_status ON sellers(status);
 -- PRODUCTS
 -- ============================================
 CREATE TABLE products (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
@@ -105,7 +104,7 @@ CREATE INDEX idx_products_status ON products(status);
 -- CUSTOMERS
 -- ============================================
 CREATE TABLE customers (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
@@ -135,7 +134,7 @@ CREATE INDEX idx_customers_phone ON customers(phone);
 -- ORDERS
 -- ============================================
 CREATE TABLE orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number TEXT NOT NULL,
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -184,7 +183,7 @@ CREATE INDEX idx_orders_created_at ON orders(created_at DESC);
 -- CONVERSATIONS
 -- ============================================
 CREATE TABLE conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   channel TEXT NOT NULL,
@@ -205,7 +204,7 @@ CREATE INDEX idx_conversations_needs_attention ON conversations(needs_seller_att
 -- MESSAGES
 -- ============================================
 CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   direction TEXT NOT NULL,
   sender TEXT NOT NULL,
@@ -226,7 +225,7 @@ CREATE INDEX idx_messages_created_at ON messages(created_at DESC);
 -- REVIEWS
 -- ============================================
 CREATE TABLE reviews (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -252,7 +251,7 @@ CREATE INDEX idx_reviews_rating ON reviews(rating);
 -- NOTIFICATIONS
 -- ============================================
 CREATE TABLE notifications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   priority TEXT NOT NULL DEFAULT 'daily',
@@ -272,7 +271,7 @@ CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
 -- INTEREST PAGES (Phase 0)
 -- ============================================
 CREATE TABLE interest_pages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   slug TEXT UNIQUE NOT NULL,
   product_name TEXT NOT NULL,
@@ -298,7 +297,7 @@ CREATE INDEX idx_interest_pages_slug ON interest_pages(slug);
 -- INTEREST SIGNUPS
 -- ============================================
 CREATE TABLE interest_signups (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   interest_page_id UUID NOT NULL REFERENCES interest_pages(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
@@ -312,7 +311,7 @@ CREATE INDEX idx_interest_signups_page_id ON interest_signups(interest_page_id);
 -- BROADCASTS
 -- ============================================
 CREATE TABLE broadcasts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   message TEXT NOT NULL,
@@ -336,7 +335,7 @@ CREATE INDEX idx_broadcasts_seller_id ON broadcasts(seller_id);
 -- POSTS
 -- ============================================
 CREATE TABLE posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   template TEXT NOT NULL,
   post_type TEXT NOT NULL DEFAULT 'feed',
@@ -359,7 +358,7 @@ CREATE INDEX idx_posts_seller_id ON posts(seller_id);
 -- AI COACH SUGGESTIONS
 -- ============================================
 CREATE TABLE coach_suggestions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -381,7 +380,7 @@ CREATE INDEX idx_coach_suggestions_status ON coach_suggestions(status) WHERE sta
 -- KNOWLEDGE BASE (AI Learning Loop)
 -- ============================================
 CREATE TABLE knowledge_base (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
@@ -397,7 +396,7 @@ CREATE INDEX idx_knowledge_base_seller_id ON knowledge_base(seller_id);
 -- JOURNEY TASKS (Automated Customer Journey)
 -- ============================================
 CREATE TABLE journey_tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   seller_id UUID NOT NULL REFERENCES sellers(id) ON DELETE CASCADE,
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,

@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Catch-all: route everything to the Next.js server handler
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/___netlify-server-handler"
+  status = 200
+  force = false

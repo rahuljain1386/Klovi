@@ -56,6 +56,8 @@ export async function GET(request: Request) {
           plan: 'free',
           country: 'usa',
           language: 'en',
+          city: '',
+          phone: '',
         });
       }
 
