@@ -48,7 +48,8 @@ async function findOrCreateCustomer(
     .insert({
       seller_id: sellerId,
       phone,
-      channel,
+      name: phone,
+      preferred_channel: channel,
       segment: 'new',
       created_at: new Date().toISOString(),
     })
@@ -111,9 +112,9 @@ async function getSellerContext(sellerId: string) {
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, name, price, description, in_stock, variants')
+    .select('id, name, price, description, status, variants')
     .eq('seller_id', sellerId)
-    .eq('in_stock', true)
+    .eq('status', 'active')
     .limit(50)
 
   const { data: knowledge } = await supabase
