@@ -136,7 +136,7 @@ export default function AdminCatalog() {
       const res = await fetch('/api/ai/generate-catalog-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: product.id, name: product.name, category: product.parent_category }),
+        body: JSON.stringify({ productId: product.id, name: product.title || product.name, category: product.parent_category, description: product.description }),
       });
       const data = await res.json();
       if (data.url) {

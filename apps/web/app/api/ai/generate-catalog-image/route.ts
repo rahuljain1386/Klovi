@@ -19,19 +19,36 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { productId, name, category } = await request.json();
+    const { productId, name, category, description } = await request.json();
     if (!productId || !name) {
       return NextResponse.json({ error: 'productId and name required' }, { status: 400 });
     }
 
     const openai = new OpenAI({ apiKey: openaiKey });
 
+    // Build a detailed, context-aware prompt
+    const productDesc = description ? ` — ${description}` : '';
+    const prompt = [
+      `A professional e-commerce product photograph of: "${name}"${productDesc}.`,
+      `Category: ${category || 'general'}.`,
+      `Requirements:`,
+      `- Show EXACTLY this specific product, not a similar or related item`,
+      `- Flat lay or slightly elevated angle on a clean, minimal background`,
+      `- Soft, even studio lighting — no harsh shadows`,
+      `- Photorealistic, like a real product listing on Amazon or Etsy`,
+      `- The product should fill most of the frame`,
+      `- No humans, no hands, no mannequins, no text, no labels, no watermarks`,
+      `- No other objects or props — just the product itself`,
+      `- High detail and sharp focus`,
+    ].join('\n');
+
     // Generate image with DALL-E 3
     const response = await openai.images.generate({
       model: 'dall-e-3',
-      prompt: `Professional product photo of "${name}" (${category || 'food'}). Clean white background, soft natural lighting, slightly elevated camera angle. Realistic, appetizing, high-quality commercial photography style. Show only the product — no text, labels, watermarks, decorations, or other objects.`,
+      prompt,
       n: 1,
       size: '1024x1024',
+      quality: 'hd',
       response_format: 'b64_json',
     });
 
