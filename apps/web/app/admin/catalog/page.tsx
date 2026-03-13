@@ -1,64 +1,220 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { CATALOG_CATEGORIES, CATALOG_PRODUCTS, CatalogProduct } from '@/data/product-catalog';
+import { useState, useEffect, useMemo } from 'react';
+import { createClient } from '@/lib/supabase/client';
+
+interface CatalogCategory {
+  id: number;
+  name: string;
+  emoji: string;
+  color: string;
+  enabled: boolean;
+  sort_order: number;
+}
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  category: string;
+  parent_category: string;
+  title: string;
+  description: string;
+  highlights: string;
+  variants: string[];
+  quantity: string;
+  price_min: number;
+  price_max: number;
+  dietary: string[];
+  pexels_query: string | null;
+  image_url: string | null;
+  enabled: boolean;
+  sort_order: number;
+}
 
 export default function AdminCatalog() {
-  const [activeCategory, setActiveCategory] = useState(CATALOG_CATEGORIES[0].name);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState('');
   const [search, setSearch] = useState('');
+
+  // Edit product
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
   const [editForm, setEditForm] = useState<Partial<CatalogProduct>>({});
-  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Add product
+  const [showAdd, setShowAdd] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', title: '', description: '', category: '', price_min: '', price_max: '', quantity: '', highlights: '', variants: '' });
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+
+  // Fetch Pexels
   const [fetchingImage, setFetchingImage] = useState<string | null>(null);
 
-  // Products for current category
-  const products = useMemo(() => {
-    let filtered = CATALOG_PRODUCTS.filter(p => p.parentCategory === activeCategory);
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = CATALOG_PRODUCTS.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.title.toLowerCase().includes(q) ||
-        p.parentCategory.toLowerCase().includes(q)
-      );
-    }
-    return filtered;
-  }, [activeCategory, search]);
-
-  // Count per category
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    CATALOG_PRODUCTS.forEach(p => {
-      counts[p.parentCategory] = (counts[p.parentCategory] || 0) + 1;
-    });
-    return counts;
+  useEffect(() => {
+    loadData();
   }, []);
 
-  // Fetch a Pexels image for a product
-  const fetchImage = async (product: CatalogProduct) => {
-    const key = product.name;
-    if (imageUrls[key]) return;
-    setFetchingImage(key);
+  const loadData = async () => {
+    const supabase = createClient();
+    const [{ data: cats }, { data: prods }] = await Promise.all([
+      supabase.from('catalog_categories').select('*').order('sort_order'),
+      supabase.from('catalog_products').select('*').order('sort_order'),
+    ]);
+    const c = (cats as CatalogCategory[]) || [];
+    setCategories(c);
+    setProducts((prods as CatalogProduct[]) || []);
+    if (c.length > 0 && !activeCategory) setActiveCategory(c[0].name);
+    setLoading(false);
+  };
+
+  // Toggle category enabled
+  const toggleCategory = async (cat: CatalogCategory) => {
+    const supabase = createClient();
+    const newEnabled = !cat.enabled;
+    await supabase.from('catalog_categories').update({ enabled: newEnabled }).eq('id', cat.id);
+    setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, enabled: newEnabled } : c));
+  };
+
+  // Filtered products
+  const filtered = useMemo(() => {
+    let list = products;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q) || p.title.toLowerCase().includes(q) || p.parent_category.toLowerCase().includes(q));
+    } else if (activeCategory) {
+      list = list.filter(p => p.parent_category === activeCategory);
+    }
+    return list;
+  }, [products, activeCategory, search]);
+
+  // Category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach(p => { counts[p.parent_category] = (counts[p.parent_category] || 0) + 1; });
+    return counts;
+  }, [products]);
+
+  // Upload image for catalog product
+  const uploadCatalogImage = async (file: File, productId: string): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('product_id', productId);
+    formData.append('bucket', 'product-images');
     try {
-      const query = product.pexelsQuery || `${product.name} ${product.parentCategory} indian`;
+      // Use service role via our API
+      const res = await fetch('/api/upload-catalog-image', { method: 'POST', body: formData });
+      if (!res.ok) return null;
+      const { url } = await res.json();
+      return url || null;
+    } catch { return null; }
+  };
+
+  // Fetch Pexels image
+  const fetchPexelsImage = async (product: CatalogProduct) => {
+    setFetchingImage(product.id);
+    try {
+      const query = product.pexels_query || `${product.name} ${product.parent_category} indian`;
       const res = await fetch(`/api/pexels-image?query=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      if (data.url) {
-        setImageUrls(prev => ({ ...prev, [key]: data.url }));
+      const { url } = await res.json();
+      if (url) {
+        const supabase = createClient();
+        await supabase.from('catalog_products').update({ image_url: url }).eq('id', product.id);
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, image_url: url } : p));
       }
-    } catch { /* skip */ }
+    } catch {}
     setFetchingImage(null);
   };
 
-  const startEdit = (product: CatalogProduct) => {
-    setEditingProduct(product);
-    setEditForm({ ...product });
-  };
+  // Save edited product
+  const saveProduct = async () => {
+    if (!editingProduct) return;
+    setSaving(true);
+    const supabase = createClient();
 
-  const cancelEdit = () => {
+    let imageUrl = editForm.image_url ?? editingProduct.image_url;
+    if (imageFile) {
+      const url = await uploadCatalogImage(imageFile, editingProduct.id);
+      if (url) imageUrl = url;
+    }
+
+    const updates = {
+      name: editForm.name || editingProduct.name,
+      title: editForm.title || editingProduct.title,
+      description: editForm.description ?? editingProduct.description,
+      highlights: editForm.highlights ?? editingProduct.highlights,
+      price_min: editForm.price_min ?? editingProduct.price_min,
+      price_max: editForm.price_max ?? editingProduct.price_max,
+      quantity: editForm.quantity ?? editingProduct.quantity,
+      variants: editForm.variants ?? editingProduct.variants,
+      pexels_query: editForm.pexels_query ?? editingProduct.pexels_query,
+      image_url: imageUrl,
+    };
+
+    await supabase.from('catalog_products').update(updates).eq('id', editingProduct.id);
+    setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...updates } as CatalogProduct : p));
     setEditingProduct(null);
     setEditForm({});
+    setImageFile(null);
+    setSaving(false);
   };
+
+  // Add new product
+  const addProduct = async () => {
+    if (!newProduct.name || !newProduct.title) return;
+    setSaving(true);
+    const supabase = createClient();
+
+    const { data } = await supabase.from('catalog_products').insert({
+      name: newProduct.name,
+      title: newProduct.title,
+      description: newProduct.description,
+      category: newProduct.category,
+      parent_category: activeCategory,
+      highlights: newProduct.highlights,
+      price_min: parseFloat(newProduct.price_min) || 0,
+      price_max: parseFloat(newProduct.price_max) || 0,
+      quantity: newProduct.quantity,
+      variants: newProduct.variants ? newProduct.variants.split(',').map(v => v.trim()).filter(Boolean) : [],
+      enabled: true,
+      sort_order: products.length,
+    }).select().single();
+
+    if (data) {
+      let finalProduct = data as CatalogProduct;
+      if (newImageFile) {
+        const url = await uploadCatalogImage(newImageFile, data.id);
+        if (url) {
+          await supabase.from('catalog_products').update({ image_url: url }).eq('id', data.id);
+          finalProduct = { ...finalProduct, image_url: url };
+        }
+      }
+      setProducts([...products, finalProduct]);
+      setNewProduct({ name: '', title: '', description: '', category: '', price_min: '', price_max: '', quantity: '', highlights: '', variants: '' });
+      setNewImageFile(null);
+      setShowAdd(false);
+    }
+    setSaving(false);
+  };
+
+  // Delete product
+  const deleteProduct = async (id: string) => {
+    if (!confirm('Delete this catalog product?')) return;
+    const supabase = createClient();
+    await supabase.from('catalog_products').delete().eq('id', id);
+    setProducts(products.filter(p => p.id !== id));
+  };
+
+  // Toggle product enabled
+  const toggleProduct = async (product: CatalogProduct) => {
+    const supabase = createClient();
+    const newEnabled = !product.enabled;
+    await supabase.from('catalog_products').update({ enabled: newEnabled }).eq('id', product.id);
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, enabled: newEnabled } : p));
+  };
+
+  if (loading) return <div className="text-warm-gray py-12 text-center">Loading catalog...</div>;
 
   return (
     <div>
@@ -66,101 +222,137 @@ export default function AdminCatalog() {
         <div>
           <h1 className="text-2xl font-display text-ink">Product Catalog</h1>
           <p className="text-sm text-warm-gray mt-1">
-            {CATALOG_CATEGORIES.length} categories · {CATALOG_PRODUCTS.length} products
+            {categories.length} categories · {products.length} products · {categories.filter(c => c.enabled).length} enabled
           </p>
         </div>
-        {/* Search */}
-        <div className="relative">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="bg-white border border-border rounded-lg px-4 py-2 text-sm text-ink placeholder:text-warm-gray w-64 focus:outline-none focus:border-amber"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-2.5 text-warm-gray hover:text-ink text-sm">✕</button>
-          )}
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products..."
+              className="bg-white border border-border rounded-lg px-4 py-2 text-sm text-ink placeholder:text-warm-gray w-56 focus:outline-none focus:border-amber"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-2.5 text-warm-gray hover:text-ink text-sm">✕</button>
+            )}
+          </div>
+          <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-amber text-white rounded-lg text-sm font-medium hover:bg-amber/90">+ Add Product</button>
         </div>
       </div>
 
-      {/* Category tabs */}
+      {/* Category tabs with enable/disable toggle */}
       {!search && (
-        <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-hide">
-          {CATALOG_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.name)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${
-                activeCategory === cat.name
-                  ? 'text-ink font-medium bg-amber/10 border-amber/30'
-                  : 'text-warm-gray hover:text-ink bg-white border-border'
-              }`}
-            >
-              <span>{cat.emoji}</span>
-              {cat.name}
-              <span className="text-[10px] opacity-60">({categoryCounts[cat.name] || 0})</span>
-            </button>
-          ))}
+        <div className="space-y-3 mb-6">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.name)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors border ${
+                  activeCategory === cat.name
+                    ? 'text-ink font-medium bg-amber/10 border-amber/30'
+                    : cat.enabled
+                    ? 'text-warm-gray hover:text-ink bg-white border-border'
+                    : 'text-warm-gray/40 bg-gray-50 border-gray-200 line-through'
+                }`}
+              >
+                <span>{cat.emoji}</span>
+                {cat.name}
+                <span className="text-[10px] opacity-60">({categoryCounts[cat.name] || 0})</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Category toggle */}
+          {activeCategory && (() => {
+            const cat = categories.find(c => c.name === activeCategory);
+            if (!cat) return null;
+            return (
+              <div className="flex items-center gap-3 bg-white rounded-xl border border-border px-4 py-3">
+                <span className="text-lg">{cat.emoji}</span>
+                <span className="text-sm text-ink font-medium flex-1">{cat.name}</span>
+                <span className="text-xs text-warm-gray">{cat.enabled ? 'Visible to sellers' : 'Hidden from sellers'}</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={cat.enabled} onChange={() => toggleCategory(cat)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-checked:bg-green-500 rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+                </label>
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {search && (
         <div className="text-sm text-warm-gray mb-4">
-          {products.length} result{products.length !== 1 ? 's' : ''} for &ldquo;{search}&rdquo;
+          {filtered.length} result{filtered.length !== 1 ? 's' : ''} for &ldquo;{search}&rdquo;
+        </div>
+      )}
+
+      {/* Add product form */}
+      {showAdd && (
+        <div className="bg-white rounded-xl border border-border p-5 mb-6">
+          <h3 className="text-ink font-medium mb-3">New Catalog Product {activeCategory && <span className="text-warm-gray font-normal">in {activeCategory}</span>}</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <input type="text" placeholder="Product name" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="text" placeholder="Display title" value={newProduct.title} onChange={e => setNewProduct({ ...newProduct, title: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="text" placeholder="Description" value={newProduct.description} onChange={e => setNewProduct({ ...newProduct, description: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="text" placeholder="Sub-category (e.g. Cake, Blouse)" value={newProduct.category} onChange={e => setNewProduct({ ...newProduct, category: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="number" placeholder="Min price (₹)" value={newProduct.price_min} onChange={e => setNewProduct({ ...newProduct, price_min: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="number" placeholder="Max price (₹)" value={newProduct.price_max} onChange={e => setNewProduct({ ...newProduct, price_max: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="text" placeholder="Quantity (e.g. 1 kg, Box of 6)" value={newProduct.quantity} onChange={e => setNewProduct({ ...newProduct, quantity: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <input type="text" placeholder="Variants (comma-separated)" value={newProduct.variants} onChange={e => setNewProduct({ ...newProduct, variants: e.target.value })} className="px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+            <label className="flex items-center gap-2 px-3 py-2.5 border border-border rounded-lg text-sm text-warm-gray cursor-pointer hover:border-amber">
+              <span>{newImageFile ? newImageFile.name : 'Choose image...'}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={e => setNewImageFile(e.target.files?.[0] || null)} />
+            </label>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={addProduct} disabled={saving} className="px-4 py-2 bg-ink text-white rounded-lg text-sm font-medium disabled:opacity-50">{saving ? 'Adding...' : 'Add Product'}</button>
+            <button onClick={() => { setShowAdd(false); setNewImageFile(null); }} className="px-4 py-2 text-warm-gray text-sm">Cancel</button>
+          </div>
         </div>
       )}
 
       {/* Products grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map((product, i) => (
-          <div key={`${product.name}-${i}`} className="bg-white rounded-xl border border-border overflow-hidden">
-            {/* Image area */}
+        {filtered.map(product => (
+          <div key={product.id} className={`bg-white rounded-xl border overflow-hidden ${product.enabled ? 'border-border' : 'border-border opacity-50'}`}>
+            {/* Image */}
             <div className="h-40 bg-cream flex items-center justify-center relative">
-              {imageUrls[product.name] ? (
-                <img
-                  src={imageUrls[product.name]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
+              {product.image_url ? (
+                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
               ) : (
                 <button
-                  onClick={() => fetchImage(product)}
-                  disabled={fetchingImage === product.name}
+                  onClick={() => fetchPexelsImage(product)}
+                  disabled={fetchingImage === product.id}
                   className="text-warm-gray hover:text-ink text-sm transition-colors"
                 >
-                  {fetchingImage === product.name ? (
-                    <span className="animate-pulse">Loading...</span>
-                  ) : (
-                    <span>Click to fetch image</span>
-                  )}
+                  {fetchingImage === product.id ? <span className="animate-pulse">Fetching...</span> : 'Click to fetch image'}
                 </button>
               )}
-              {/* Category badge */}
               <span className="absolute top-2 left-2 text-[10px] bg-white/90 text-ink px-2 py-0.5 rounded-full border border-border">
                 {product.category}
               </span>
+              {!product.enabled && (
+                <span className="absolute top-2 right-2 text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full">HIDDEN</span>
+              )}
             </div>
 
             {/* Content */}
             <div className="p-4">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-ink font-medium text-sm">{product.title}</h3>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-ink font-medium text-sm truncate">{product.title}</h3>
                   <p className="text-warm-gray text-xs mt-1 line-clamp-2">{product.description}</p>
                 </div>
-                <button
-                  onClick={() => startEdit(product)}
-                  className="text-xs text-amber hover:text-amber/80 shrink-0"
-                >
-                  Edit
-                </button>
               </div>
 
-              {/* Details */}
               <div className="mt-3 flex flex-wrap gap-1.5">
                 <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
-                  ₹{product.priceMin}–{product.priceMax}
+                  ₹{product.price_min}–{product.price_max}
                 </span>
                 <span className="text-[10px] bg-cream text-warm-gray px-2 py-0.5 rounded-full">
                   {product.quantity}
@@ -172,101 +364,82 @@ export default function AdminCatalog() {
                 )}
               </div>
 
-              {/* Variants */}
-              {product.variants.length > 0 && (
-                <div className="mt-2 text-[10px] text-warm-gray truncate">
-                  {product.variants.join(' · ')}
-                </div>
-              )}
-
-              {/* Highlights */}
-              <div className="mt-2 text-[10px] text-warm-gray/60 truncate">
-                {product.highlights}
+              {/* Actions */}
+              <div className="mt-3 flex items-center gap-2 pt-3 border-t border-border">
+                <button onClick={() => { setEditingProduct(product); setEditForm({ ...product }); setImageFile(null); }} className="text-xs text-amber hover:underline">Edit</button>
+                <button onClick={() => toggleProduct(product)} className="text-xs text-warm-gray hover:text-ink">{product.enabled ? 'Hide' : 'Show'}</button>
+                <button onClick={() => deleteProduct(product.id)} className="text-xs text-warm-gray hover:text-rose ml-auto">Delete</button>
               </div>
-
-              {product.dietary.length > 0 && (
-                <div className="mt-1.5 flex gap-1">
-                  {product.dietary.map(d => (
-                    <span key={d} className="text-[9px] bg-amber/10 text-amber px-1.5 py-0.5 rounded">
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      {products.length === 0 && (
-        <div className="text-center text-warm-gray py-16">No products found</div>
+      {filtered.length === 0 && (
+        <div className="text-center text-warm-gray py-16 bg-white rounded-xl border border-border">No products found</div>
       )}
 
       {/* Edit modal */}
       {editingProduct && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={cancelEdit}>
-          <div
-            className="bg-white rounded-2xl border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setEditingProduct(null); setImageFile(null); }}>
+          <div className="bg-white rounded-2xl border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b border-border flex items-center justify-between">
-              <h2 className="text-ink font-medium">Edit Product</h2>
-              <button onClick={cancelEdit} className="text-warm-gray hover:text-ink">✕</button>
+              <h2 className="text-ink font-medium">Edit Catalog Product</h2>
+              <button onClick={() => { setEditingProduct(null); setImageFile(null); }} className="text-warm-gray hover:text-ink">✕</button>
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Image */}
+              {(imageFile || editingProduct.image_url) && (
+                <div className="w-full h-40 rounded-xl overflow-hidden bg-cream">
+                  <img src={imageFile ? URL.createObjectURL(imageFile) : editingProduct.image_url!} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <label className="flex items-center gap-2 px-3 py-2.5 border border-border rounded-lg text-sm text-warm-gray cursor-pointer hover:border-amber w-full">
+                <span>{imageFile ? imageFile.name : 'Upload new image...'}</span>
+                <input type="file" accept="image/*" className="hidden" onChange={e => setImageFile(e.target.files?.[0] || null)} />
+              </label>
+
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Title</label>
-                <input value={editForm.title || ''} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                <input value={editForm.title || ''} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
               </div>
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Description</label>
-                <textarea value={editForm.description || ''} onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber resize-none" />
+                <textarea value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} rows={3} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber resize-none" />
               </div>
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Highlights</label>
-                <input value={editForm.highlights || ''} onChange={(e) => setEditForm(f => ({ ...f, highlights: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                <input value={editForm.highlights || ''} onChange={e => setEditForm(f => ({ ...f, highlights: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-warm-gray block mb-1">Min Price (₹)</label>
-                  <input type="number" value={editForm.priceMin || 0} onChange={(e) => setEditForm(f => ({ ...f, priceMin: Number(e.target.value) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                  <input type="number" value={editForm.price_min ?? 0} onChange={e => setEditForm(f => ({ ...f, price_min: Number(e.target.value) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
                 </div>
                 <div>
                   <label className="text-xs text-warm-gray block mb-1">Max Price (₹)</label>
-                  <input type="number" value={editForm.priceMax || 0} onChange={(e) => setEditForm(f => ({ ...f, priceMax: Number(e.target.value) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                  <input type="number" value={editForm.price_max ?? 0} onChange={e => setEditForm(f => ({ ...f, price_max: Number(e.target.value) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
                 </div>
               </div>
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Quantity / Unit</label>
-                <input value={editForm.quantity || ''} onChange={(e) => setEditForm(f => ({ ...f, quantity: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                <input value={editForm.quantity || ''} onChange={e => setEditForm(f => ({ ...f, quantity: e.target.value }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
               </div>
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Variants (comma-separated)</label>
-                <input value={(editForm.variants || []).join(', ')} onChange={(e) => setEditForm(f => ({ ...f, variants: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber" />
+                <input value={(editForm.variants || []).join(', ')} onChange={e => setEditForm(f => ({ ...f, variants: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
               </div>
               <div>
-                <label className="text-xs text-warm-gray block mb-1">Image Search Query (for Pexels)</label>
-                <input value={editForm.pexelsQuery || ''} onChange={(e) => setEditForm(f => ({ ...f, pexelsQuery: e.target.value }))} placeholder={`${editForm.name} ${editForm.parentCategory}`} className="w-full border border-border rounded-lg px-3 py-2 text-sm text-ink placeholder:text-warm-gray/40 focus:outline-none focus:border-amber" />
+                <label className="text-xs text-warm-gray block mb-1">Pexels Search Query</label>
+                <input value={editForm.pexels_query || ''} onChange={e => setEditForm(f => ({ ...f, pexels_query: e.target.value }))} placeholder={`${editForm.name} indian`} className="w-full border border-border rounded-lg px-3 py-2 text-sm placeholder:text-warm-gray/40 focus:outline-none focus:border-amber" />
               </div>
-              {editForm.name && imageUrls[editForm.name] && (
-                <div>
-                  <label className="text-xs text-warm-gray block mb-1">Current Image</label>
-                  <img src={imageUrls[editForm.name]} alt={editForm.name} className="w-full h-40 object-cover rounded-lg" />
-                </div>
-              )}
             </div>
 
             <div className="p-5 border-t border-border flex gap-3 justify-end">
-              <button onClick={cancelEdit} className="px-4 py-2 text-sm text-warm-gray hover:text-ink">Cancel</button>
-              <button
-                onClick={() => {
-                  alert('Saved! (Catalog DB persistence coming soon — currently read-only from product-catalog.ts)');
-                  cancelEdit();
-                }}
-                className="px-4 py-2 bg-amber text-white text-sm font-medium rounded-lg hover:bg-amber/90"
-              >
-                Save Changes
+              <button onClick={() => { setEditingProduct(null); setImageFile(null); }} className="px-4 py-2 text-sm text-warm-gray hover:text-ink">Cancel</button>
+              <button onClick={saveProduct} disabled={saving} className="px-4 py-2 bg-amber text-white text-sm font-medium rounded-lg hover:bg-amber/90 disabled:opacity-50">
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
