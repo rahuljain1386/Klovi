@@ -6,3 +6,8 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   ::selection { background-color: #fef3c7; color: #1a0f00; }
 }
+
+/* Safe area for bottom tab bar on iOS */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

@@ -251,9 +251,9 @@ export default function InboxPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="font-display text-3xl text-ink">Inbox</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <h1 className="font-display text-2xl md:text-3xl text-ink">Inbox</h1>
+        <div className="flex gap-2 overflow-x-auto">
           <button onClick={() => setFilter('all')} className={`text-xs px-3 py-1.5 rounded-full font-semibold ${filter === 'all' ? 'bg-ink text-white' : 'bg-white text-warm-gray border border-border'}`}>
             All ({conversations.length})
           </button>
@@ -268,10 +268,10 @@ export default function InboxPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-border overflow-hidden" style={{ height: '75vh' }}>
+      <div className="bg-white rounded-xl border border-border overflow-hidden" style={{ height: 'calc(100vh - 180px)' }}>
         <div className="flex h-full">
-          {/* Conversation list */}
-          <div className="w-80 border-r border-border overflow-y-auto flex-shrink-0">
+          {/* Conversation list — full width on mobile when no conv selected, sidebar on desktop */}
+          <div className={`${selectedConv ? 'hidden md:block' : 'w-full'} md:w-80 border-r border-border overflow-y-auto flex-shrink-0`}>
             {filter === 'unrouted' ? (
               /* Unrouted messages list */
               unrouted.length === 0 ? (
@@ -349,8 +349,8 @@ export default function InboxPage() {
             )}
           </div>
 
-          {/* Messages + Context */}
-          <div className="flex-1 flex flex-col">
+          {/* Messages + Context — hidden on mobile when no conv selected */}
+          <div className={`${!selectedConv ? 'hidden md:flex' : 'flex'} flex-1 flex-col`}>
             {!selectedConv ? (
               <div className="flex-1 flex flex-col items-center justify-center text-warm-gray gap-2">
                 <span className="text-4xl">💬</span>
@@ -361,7 +361,11 @@ export default function InboxPage() {
                 {/* Header with seller context */}
                 <div className="p-4 border-b border-border">
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setSelectedConv(null)} className="md:hidden text-warm-gray hover:text-ink p-1">
+                        &larr;
+                      </button>
+                      <div>
                       <p className="font-semibold text-ink">
                         {selectedConv.customer?.name || selectedConv.customer?.phone || 'Unknown'}
                       </p>
@@ -369,6 +373,7 @@ export default function InboxPage() {
                         {CHANNEL_LABELS[selectedConv.channel] || selectedConv.channel}
                         {selectedConv.customer?.phone && ` · ${selectedConv.customer.phone}`}
                       </p>
+                    </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {!selectedConv.ai_can_handle && (

@@ -17,11 +17,21 @@ const navItems = [
   { href: '/dashboard/settings', label: 'Settings', icon: '⚙️' },
 ];
 
+// Bottom tab bar shows top 5 items on mobile
+const mobileNavItems = [
+  { href: '/dashboard', label: 'Home', icon: '🏠' },
+  { href: '/dashboard/orders', label: 'Orders', icon: '📋' },
+  { href: '/dashboard/inbox', label: 'Inbox', icon: '💬' },
+  { href: '/dashboard/products', label: 'Products', icon: '📦' },
+  { href: '/dashboard/settings', label: 'More', icon: '⚙️' },
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [sellerName, setSellerName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -56,6 +66,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     checkAuth();
   }, [router]);
 
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -71,9 +85,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-cream flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-[#e7e0d4] flex flex-col fixed h-full">
+    <div className="min-h-screen bg-cream">
+      {/* Desktop Sidebar — hidden on mobile */}
+      <aside className="hidden md:flex w-64 bg-white border-r border-[#e7e0d4] flex-col fixed h-full z-30">
         <div className="p-6 border-b border-[#e7e0d4]">
           <Link href="/" className="font-display text-2xl text-ink">Klovi</Link>
           {sellerName && (
@@ -113,12 +127,93 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
+      {/* Mobile top bar */}
+      <header className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-[#e7e0d4] z-30 px-4 py-3 flex items-center justify-between">
+        <Link href="/" className="font-display text-xl text-ink">Klovi</Link>
+        {sellerName && (
+          <p className="text-sm text-warm-gray truncate max-w-[180px]">{sellerName}</p>
+        )}
+      </header>
+
+      {/* Mobile slide-up menu (from More tab) */}
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileMenuOpen(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl pb-6 pt-3 max-h-[70vh] overflow-y-auto">
+            <div className="w-10 h-1 bg-warm-gray/30 rounded-full mx-auto mb-4" />
+            <nav className="px-2">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href ||
+                  (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium ${
+                      isActive ? 'bg-amber/10 text-ink' : 'text-warm-gray'
+                    }`}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="px-6 pt-3 mt-2 border-t border-[#e7e0d4]">
+              <button
+                onClick={handleLogout}
+                className="w-full text-left py-3 text-base text-rose font-medium"
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main content */}
-      <main className="flex-1 ml-64">
-        <div className="max-w-6xl mx-auto p-8">
+      <main className="md:ml-64 pt-14 md:pt-0 pb-20 md:pb-0">
+        <div className="max-w-6xl mx-auto px-4 py-5 md:p-8">
           {children}
         </div>
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#e7e0d4] z-30 flex items-center justify-around px-1 py-1.5 safe-area-pb">
+        {mobileNavItems.map((item) => {
+          const isMore = item.label === 'More';
+          const isActive = !isMore && (
+            pathname === item.href ||
+            (item.href !== '/dashboard' && pathname.startsWith(item.href))
+          );
+
+          if (isMore) {
+            return (
+              <button
+                key="more"
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-[56px] text-warm-gray"
+              >
+                <span className="text-xl">⚙️</span>
+                <span className="text-[10px] font-medium">More</span>
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-[56px] ${
+                isActive ? 'text-amber' : 'text-warm-gray'
+              }`}
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-[10px] font-medium">{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

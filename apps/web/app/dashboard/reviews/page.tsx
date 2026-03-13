@@ -55,10 +55,10 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-ink mb-6">Reviews</h1>
+      <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">Reviews</h1>
 
       {/* Summary */}
-      <div className="bg-white rounded-xl p-6 border border-[#e7e0d4] mb-6 flex items-center gap-8">
+      <div className="bg-white rounded-xl p-5 md:p-6 border border-[#e7e0d4] mb-6 flex items-center gap-4 md:gap-8 flex-wrap">
         <div>
           <p className="text-4xl font-bold text-ink">{avgRating ? avgRating.toFixed(1) : '-'}</p>
           <p className="text-amber text-lg">{stars(Math.round(avgRating))}</p>

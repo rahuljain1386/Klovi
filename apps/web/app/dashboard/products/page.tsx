@@ -166,7 +166,7 @@ export default function ProductsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-3xl text-ink">Products</h1>
+        <h1 className="font-display text-2xl md:text-3xl text-ink">Products</h1>
         <button
           onClick={() => setShowAdd(true)}
           className="px-5 py-2 bg-amber text-white rounded-lg font-semibold hover:bg-amber/90 transition-colors"
@@ -232,78 +232,71 @@ export default function ProductsPage() {
       ) : (
         <div className="space-y-3">
           {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl p-5 border border-[#e7e0d4]">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  {/* Product image */}
-                  {(() => {
-                    const img = product.images?.[0] || product.image_url;
-                    return img ? (
-                      <img src={img} alt={product.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-border" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl bg-amber/10 flex items-center justify-center flex-shrink-0 text-xl">📦</div>
-                    );
-                  })()}
-                  <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-ink">{product.name}</h3>
-                    <span className={`text-sm font-medium ${product.is_available ? 'text-green' : 'text-warm-gray'}`}>
-                      {product.is_available ? 'Available' : 'Unavailable'}
-                    </span>
+            <div key={product.id} className="bg-white rounded-xl p-4 md:p-5 border border-[#e7e0d4]">
+              <div className="flex items-start gap-3 md:gap-4">
+                {/* Product image */}
+                {(() => {
+                  const img = product.images?.[0] || product.image_url;
+                  return img ? (
+                    <img src={img} alt={product.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-border" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-amber/10 flex items-center justify-center flex-shrink-0 text-xl">📦</div>
+                  );
+                })()}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="font-semibold text-ink truncate">{product.name}</h3>
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={product.is_available}
+                        onChange={() => toggleAvailability(product)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-[#e7e0d4] peer-checked:bg-green rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+                    </label>
                   </div>
                   {product.description && (
-                    <p className="text-sm text-warm-gray mt-1">{product.description}</p>
+                    <p className="text-sm text-warm-gray mt-1 line-clamp-1">{product.description}</p>
                   )}
                   <p className="text-lg font-bold text-ink mt-1">
                     {product.currency === 'INR' ? '\u20B9' : '$'}{product.price}
                   </p>
-                </div>
-                </div>
 
-                <div className="flex items-center gap-4">
-                  {product.track_stock && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => adjustStock(product, -1)}
-                        className="w-8 h-8 rounded-full border border-[#e7e0d4] flex items-center justify-center hover:bg-cream"
-                      >
-                        -
-                      </button>
-                      <span className={`font-bold min-w-[2rem] text-center ${stockColor(product)}`}>
-                        {product.stock_quantity ?? 0}
-                      </span>
-                      <button
-                        onClick={() => adjustStock(product, 1)}
-                        className="w-8 h-8 rounded-full border border-[#e7e0d4] flex items-center justify-center hover:bg-cream"
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={product.is_available}
-                      onChange={() => toggleAvailability(product)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-[#e7e0d4] peer-checked:bg-green rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
-                  </label>
-
-                  <button
-                    onClick={() => startEdit(product)}
-                    className="text-amber hover:underline text-sm"
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() => deleteProduct(product.id)}
-                    className="text-warm-gray hover:text-rose transition-colors text-sm"
-                  >
-                    Delete
-                  </button>
+                  {/* Controls row */}
+                  <div className="flex items-center gap-3 mt-2 flex-wrap">
+                    {product.track_stock && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => adjustStock(product, -1)}
+                          className="w-8 h-8 rounded-full border border-[#e7e0d4] flex items-center justify-center hover:bg-cream"
+                        >
+                          -
+                        </button>
+                        <span className={`font-bold min-w-[2rem] text-center ${stockColor(product)}`}>
+                          {product.stock_quantity ?? 0}
+                        </span>
+                        <button
+                          onClick={() => adjustStock(product, 1)}
+                          className="w-8 h-8 rounded-full border border-[#e7e0d4] flex items-center justify-center hover:bg-cream"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => startEdit(product)}
+                      className="text-amber hover:underline text-sm"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteProduct(product.id)}
+                      className="text-warm-gray hover:text-rose transition-colors text-sm"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

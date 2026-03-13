@@ -126,7 +126,7 @@ export default function DashboardHome() {
       {/* Header */}
       <div className="mb-8">
         <p className="text-warm-gray">{greeting()},</p>
-        <h1 className="font-display text-3xl text-ink">{sellerName}</h1>
+        <h1 className="font-display text-2xl md:text-3xl text-ink">{sellerName}</h1>
       </div>
 
       {/* Stats */}
