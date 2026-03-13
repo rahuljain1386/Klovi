@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { t } from '@/lib/i18n';
 
 type ShopStatus = {
   sellerName: string;
@@ -17,6 +18,7 @@ type ShopStatus = {
   currency: string;
   hasWhatsApp: boolean;
   hasDelivery: boolean;
+  language: string;
 };
 
 export default function DashboardHome() {
@@ -62,14 +64,16 @@ export default function DashboardHome() {
       currency: seller.country === 'india' ? 'INR' : 'USD',
       hasWhatsApp: !!(seller.whatsapp_number || seller.phone),
       hasDelivery: !!seller.fulfillment_type,
+      language: seller.language || 'en',
     });
   };
 
   const greeting = () => {
     const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    const lang = shop?.language || 'en';
+    if (h < 12) return t('dash.morning', lang);
+    if (h < 17) return t('dash.afternoon', lang);
+    return t('dash.evening', lang);
   };
 
   const copyShopLink = () => {
@@ -101,7 +105,7 @@ export default function DashboardHome() {
       {/* Shop link card — always visible, prominent */}
       <div className="bg-white rounded-xl p-4 md:p-5 border border-[#e7e0d4] mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs text-warm-gray">Your shop link</p>
+          <p className="text-xs text-warm-gray">{t('dash.shopLink', shop.language)}</p>
           <p className="text-sm font-medium text-amber truncate">kloviapp.com/{shop.slug}</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
@@ -109,7 +113,7 @@ export default function DashboardHome() {
             onClick={copyShopLink}
             className="px-4 py-2 bg-amber text-white text-sm font-semibold rounded-lg hover:bg-amber/90 transition-colors"
           >
-            {copied ? 'Copied!' : 'Copy Link'}
+            {copied ? t('dash.copied', shop.language) : t('dash.copyLink', shop.language)}
           </button>
           <a
             href={`https://wa.me/?text=${encodeURIComponent(`Check out my shop: https://kloviapp.com/${shop.slug}`)}`}
@@ -117,7 +121,7 @@ export default function DashboardHome() {
             rel="noopener noreferrer"
             className="px-4 py-2 bg-green text-white text-sm font-semibold rounded-lg hover:bg-green/90 transition-colors"
           >
-            Share
+            {t('live.share', shop.language)}
           </a>
         </div>
       </div>
@@ -126,39 +130,39 @@ export default function DashboardHome() {
       <div className="grid grid-cols-2 gap-3 mb-6">
         <Link href="/dashboard/products" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
           <p className="text-2xl font-bold text-ink">{shop.productCount}</p>
-          <p className="text-sm text-warm-gray">Products</p>
-          <p className="text-xs text-green mt-1">{shop.availableCount} available</p>
+          <p className="text-sm text-warm-gray">{t('dash.products', shop.language)}</p>
+          <p className="text-xs text-green mt-1">{shop.availableCount} {t('dash.available', shop.language)}</p>
         </Link>
         <Link href="/dashboard/orders" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
           <p className="text-2xl font-bold text-ink">{shop.todayOrders}</p>
-          <p className="text-sm text-warm-gray">Today&apos;s Orders</p>
+          <p className="text-sm text-warm-gray">{t('dash.todayOrders', shop.language)}</p>
           {shop.todayRevenue > 0 && (
-            <p className="text-xs text-green mt-1">{currencySymbol}{shop.todayRevenue.toFixed(0)} earned</p>
+            <p className="text-xs text-green mt-1">{currencySymbol}{shop.todayRevenue.toFixed(0)} {t('dash.earned', shop.language)}</p>
           )}
         </Link>
         <Link href="/dashboard/inbox" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
           <p className="text-2xl font-bold text-ink">{shop.unreadMessages}</p>
-          <p className="text-sm text-warm-gray">Unread Messages</p>
+          <p className="text-sm text-warm-gray">{t('dash.unread', shop.language)}</p>
           {shop.unreadMessages > 0 && (
-            <p className="text-xs text-amber mt-1">Needs reply</p>
+            <p className="text-xs text-amber mt-1">{t('dash.needsReply', shop.language)}</p>
           )}
         </Link>
         <Link href="/dashboard/customers" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
           <p className="text-2xl font-bold text-ink">{shop.totalCustomers}</p>
-          <p className="text-sm text-warm-gray">Customers</p>
+          <p className="text-sm text-warm-gray">{t('dash.customers', shop.language)}</p>
         </Link>
       </div>
 
       {/* Action items — things that need attention */}
       {(shop.pendingOrders > 0 || shop.unreadMessages > 0) && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-ink mb-3">Needs your attention</h2>
+          <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.attention', shop.language)}</h2>
           <div className="space-y-2">
             {shop.pendingOrders > 0 && (
               <Link href="/dashboard/orders" className="flex items-center justify-between bg-amber/5 rounded-xl p-4 border border-amber/20 group">
                 <div>
-                  <p className="font-semibold text-ink">{shop.pendingOrders} order{shop.pendingOrders > 1 ? 's' : ''} pending</p>
-                  <p className="text-sm text-warm-gray">Review and confirm</p>
+                  <p className="font-semibold text-ink">{shop.pendingOrders} {t('dash.ordersPending', shop.language)}</p>
+                  <p className="text-sm text-warm-gray">{t('dash.reviewConfirm', shop.language)}</p>
                 </div>
                 <span className="text-amber group-hover:translate-x-1 transition-transform">&rarr;</span>
               </Link>
@@ -166,8 +170,8 @@ export default function DashboardHome() {
             {shop.unreadMessages > 0 && (
               <Link href="/dashboard/inbox" className="flex items-center justify-between bg-blue/5 rounded-xl p-4 border border-blue/20 group">
                 <div>
-                  <p className="font-semibold text-ink">{shop.unreadMessages} unread message{shop.unreadMessages > 1 ? 's' : ''}</p>
-                  <p className="text-sm text-warm-gray">Reply to keep customers happy</p>
+                  <p className="font-semibold text-ink">{shop.unreadMessages} {t('dash.unreadMsg', shop.language)}</p>
+                  <p className="text-sm text-warm-gray">{t('dash.replyHappy', shop.language)}</p>
                 </div>
                 <span className="text-blue group-hover:translate-x-1 transition-transform">&rarr;</span>
               </Link>
@@ -179,30 +183,30 @@ export default function DashboardHome() {
       {/* Setup checklist for new sellers */}
       {isNewSeller && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-ink mb-3">Get your shop ready</h2>
+          <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.getReady', shop.language)}</h2>
           <div className="bg-white rounded-xl border border-[#e7e0d4] divide-y divide-[#e7e0d4]">
             <ChecklistItem
               done={shop.productCount > 0}
-              label="Add your products"
-              subtitle={shop.productCount > 0 ? `${shop.productCount} products added` : 'List what you sell with photos and prices'}
+              label={t('dash.addProducts', shop.language)}
+              subtitle={shop.productCount > 0 ? `${shop.productCount} ${t('dash.productsAdded', shop.language)}` : t('dash.listSell', shop.language)}
               href="/dashboard/products"
             />
             <ChecklistItem
               done={shop.hasWhatsApp}
-              label="Connect WhatsApp"
-              subtitle={shop.hasWhatsApp ? 'Connected' : 'So customers can message you'}
+              label={t('dash.connectWA', shop.language)}
+              subtitle={shop.hasWhatsApp ? t('dash.connected', shop.language) : t('dash.soCustomers', shop.language)}
               href="/dashboard/settings"
             />
             <ChecklistItem
               done={shop.hasDelivery}
-              label="Set delivery options"
-              subtitle={shop.hasDelivery ? 'Configured' : 'Pickup, delivery, or both'}
+              label={t('dash.setDelivery', shop.language)}
+              subtitle={shop.hasDelivery ? t('dash.configured', shop.language) : t('dash.pickupDelivery', shop.language)}
               href="/dashboard/settings"
             />
             <ChecklistItem
               done={false}
-              label="Share your shop link"
-              subtitle="Send to friends, post on social media"
+              label={t('dash.shareLink', shop.language)}
+              subtitle={t('dash.shareSubtitle', shop.language)}
               onClick={copyShopLink}
             />
           </div>
@@ -210,21 +214,21 @@ export default function DashboardHome() {
       )}
 
       {/* Quick actions */}
-      <h2 className="text-lg font-semibold text-ink mb-3">Quick actions</h2>
+      <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.quickActions', shop.language)}</h2>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'Add Product', href: '/dashboard/products', icon: '➕' },
-          { label: 'Send Broadcast', href: '/dashboard/broadcasts', icon: '📢' },
-          { label: 'Create Post', href: '/dashboard/posts', icon: '🎨' },
-          { label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
+          { key: 'dash.addProduct', href: '/dashboard/products', icon: '➕' },
+          { key: 'dash.broadcast', href: '/dashboard/broadcasts', icon: '📢' },
+          { key: 'dash.createPost', href: '/dashboard/posts', icon: '🎨' },
+          { key: 'dash.settings', href: '/dashboard/settings', icon: '⚙️' },
         ].map((action) => (
           <Link
-            key={action.label}
+            key={action.key}
             href={action.href}
             className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
           >
             <span className="text-xl">{action.icon}</span>
-            <p className="text-sm font-medium text-ink mt-1">{action.label}</p>
+            <p className="text-sm font-medium text-ink mt-1">{t(action.key, shop.language)}</p>
           </Link>
         ))}
       </div>

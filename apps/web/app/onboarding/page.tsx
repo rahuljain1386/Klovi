@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { BUSINESS_TYPE_TO_CATEGORIES } from '@/data/product-catalog';
+import { t } from '@/lib/i18n';
 
 // Local type matching DB catalog_products shape (camelCase)
 interface CatalogProduct {
@@ -1061,12 +1062,12 @@ export default function OnboardingPage() {
             <div className="bg-amber h-2 rounded-full transition-all duration-500" style={{ width: progress }} />
           </div>
           <div className="flex justify-between mt-1 text-[10px] text-warm-gray font-medium">
-            <span className={step === 'setup' ? 'text-amber font-bold' : ''}>Setup</span>
-            <span className={step === 'products' ? 'text-amber font-bold' : ''}>Products</span>
-            <span className={step === 'import' ? 'text-amber font-bold' : ''}>Import</span>
-            <span className={step === 'channels' ? 'text-amber font-bold' : ''}>Channels</span>
-            <span className={step === 'preview' ? 'text-amber font-bold' : ''}>Preview</span>
-            <span className={step === 'live' ? 'text-amber font-bold' : ''}>Live!</span>
+            <span className={step === 'setup' ? 'text-amber font-bold' : ''}>{t('step.setup', language)}</span>
+            <span className={step === 'products' ? 'text-amber font-bold' : ''}>{t('step.products', language)}</span>
+            <span className={step === 'import' ? 'text-amber font-bold' : ''}>{t('step.review', language)}</span>
+            <span className={step === 'channels' ? 'text-amber font-bold' : ''}>{t('step.channels', language)}</span>
+            <span className={step === 'preview' ? 'text-amber font-bold' : ''}>{t('step.preview', language)}</span>
+            <span className={step === 'live' ? 'text-amber font-bold' : ''}>{t('step.live', language)}</span>
           </div>
         </div>
       </div>
@@ -1075,10 +1076,10 @@ export default function OnboardingPage() {
       {step === 'setup' && (
         <div className="max-w-xl mx-auto px-4 pb-6">
           <div className="bg-white rounded-2xl p-6 border border-border">
-            <h1 className="font-display text-2xl text-ink mb-1">Let&apos;s set you up</h1>
-            <p className="text-warm-gray text-sm mb-5">Takes 30 seconds</p>
+            <h1 className="font-display text-2xl text-ink mb-1">{t('setup.title', language)}</h1>
+            <p className="text-warm-gray text-sm mb-5">{t('setup.subtitle', language)}</p>
             <div className="mb-5">
-              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">Language</label>
+              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">{t('setup.language', language)}</label>
               <div className="flex gap-2">
                 {[{ c: 'en', l: 'English' }, { c: 'hi', l: 'Hindi' }, { c: 'es', l: 'Español' }].map(l => (
                   <button key={l.c} onClick={() => setLanguage(l.c)}
@@ -1089,7 +1090,7 @@ export default function OnboardingPage() {
               </div>
             </div>
             <div className="mb-5">
-              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">What do you sell? <span className="normal-case font-normal text-warm-gray">(pick all that apply)</span></label>
+              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">{t('setup.whatSell', language)} <span className="normal-case font-normal text-warm-gray">({t('setup.pickAll', language)})</span></label>
               <div className="grid grid-cols-4 gap-1.5">
                 {BUSINESS_TYPES.map(bt => {
                   if (bt.label === 'Other') return (
@@ -1142,17 +1143,17 @@ export default function OnboardingPage() {
               </div>
             </div>
             <div className="mb-6">
-              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">Your city</label>
+              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">{t('setup.city', language)}</label>
               <div className="flex gap-2">
                 <input type="text" value={city} onChange={(e) => setCity(e.target.value)}
-                  className="flex-1 px-3 py-2.5 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-amber" placeholder="e.g., Austin, TX" />
+                  className="flex-1 px-3 py-2.5 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-amber" placeholder={t('setup.cityPlaceholder', language)} />
                 <MicButton onTranscript={(t) => setCity(t)} lang={language} small />
               </div>
               {city && <p className="text-xs text-green mt-1 flex items-center gap-1"><span>✓</span> {city}</p>}
             </div>
             <button onClick={saveSetup} disabled={saving || businessTypes.length === 0 || !city.trim()}
               className="w-full py-4 bg-amber text-white rounded-2xl font-semibold text-lg hover:bg-amber/90 disabled:opacity-40 transition-colors min-h-[52px]">
-              {saving ? 'Saving...' : 'Next — Add Products'}
+              {saving ? t('setup.saving', language) : t('setup.next', language)}
             </button>
           </div>
         </div>
@@ -1167,14 +1168,14 @@ export default function OnboardingPage() {
           <div className="hidden md:flex gap-4" style={{ height: 'calc(100vh - 140px)' }}>
             {/* LEFT PANEL — Add buttons (fixed, no scroll) */}
             <div className="w-52 flex-shrink-0 space-y-3">
-              <h2 className="font-display text-lg text-ink px-1">Add Products</h2>
+              <h2 className="font-display text-lg text-ink px-1">{t('products.title', language)}</h2>
 
               <button onClick={() => bulkFileRef.current?.click()}
                 className="w-full bg-white rounded-xl border-2 border-border p-4 text-center hover:border-amber hover:shadow-md transition-all active:scale-95 group">
                 <div className="w-10 h-10 bg-amber/10 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-amber/20">
                   <span className="text-xl">📷</span>
                 </div>
-                <span className="text-xs font-bold text-ink block">Photo of Menu</span>
+                <span className="text-xs font-bold text-ink block">{t('products.photo', language)}</span>
                 <span className="text-[10px] text-warm-gray block">AI reads all items</span>
               </button>
 
@@ -1183,7 +1184,7 @@ export default function OnboardingPage() {
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-2 ${recording ? 'bg-rose/20 animate-pulse' : 'bg-amber/10 group-hover:bg-amber/20'}`}>
                   <span className="text-xl">{recording ? '⏹️' : '🎤'}</span>
                 </div>
-                <span className="text-xs font-bold text-ink block">{recording ? 'Stop' : 'Speak Menu'}</span>
+                <span className="text-xs font-bold text-ink block">{recording ? 'Stop' : t('products.voice', language)}</span>
                 <span className="text-[10px] text-warm-gray block">{recording ? 'Tap to finish' : 'Say items & prices'}</span>
               </button>
 
@@ -1192,7 +1193,7 @@ export default function OnboardingPage() {
                 <div className="w-10 h-10 bg-amber/10 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-amber/20">
                   <span className="text-xl">✏️</span>
                 </div>
-                <span className="text-xs font-bold text-ink block">Add One</span>
+                <span className="text-xs font-bold text-ink block">{t('products.type', language)}</span>
                 <span className="text-[10px] text-warm-gray block">Type it in</span>
               </button>
 
@@ -1205,7 +1206,7 @@ export default function OnboardingPage() {
                   <div className="w-10 h-10 bg-amber/20 rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:bg-amber/30">
                     <span className="text-xl">🛍️</span>
                   </div>
-                  <span className="text-xs font-bold text-amber block">Pick from Catalog</span>
+                  <span className="text-xs font-bold text-amber block">{t('products.catalog', language)}</span>
                   <span className="text-[10px] text-warm-gray block">{hasMappedCategories ? 'Pre-built products' : 'AI generates for you'}</span>
                 </button>
 
@@ -1998,7 +1999,7 @@ export default function OnboardingPage() {
                   channelStep >= s ? 'bg-amber text-white' : 'bg-cream text-warm-gray'
                 }`}>{s}</div>
                 <span className={`text-xs font-medium hidden sm:block ${channelStep >= s ? 'text-ink' : 'text-warm-gray'}`}>
-                  {s === 1 ? 'Payment' : s === 2 ? 'Channels' : 'Launch'}
+                  {s === 1 ? t('channels.payment', language) : s === 2 ? t('channels.comm', language) : 'Launch'}
                 </span>
                 {s < 3 && <div className={`flex-1 h-0.5 ${channelStep > s ? 'bg-amber' : 'bg-border'}`} />}
               </div>
@@ -2169,7 +2170,7 @@ export default function OnboardingPage() {
           {channelStep === 3 && (
             <div className="bg-white rounded-2xl p-6 border border-border text-center">
               <div className="text-5xl mb-3">✨</div>
-              <h1 className="font-display text-2xl text-ink mb-2">Your launch post</h1>
+              <h1 className="font-display text-2xl text-ink mb-2">{t('channels.launchPost', language)}</h1>
               <p className="text-warm-gray text-sm mb-5">
                 {launchPost ? 'Download & share on WhatsApp, Instagram, Facebook' : 'We\'ll create a beautiful post with your products & contact info'}
               </p>
@@ -2297,19 +2298,19 @@ export default function OnboardingPage() {
                   <div className="flex gap-2 mb-4">
                     <button onClick={downloadLaunchPost}
                       className="flex-1 py-3 bg-cream text-ink rounded-xl font-semibold text-sm hover:bg-cream/70 transition-colors border border-border">
-                      Download Image
+                      {t('channels.download', language)}
                     </button>
                     <button onClick={() => {
                       if (navigator.share) navigator.share({ title: `${businessName} is open!`, url: `${window.location.origin}/${slug}` });
                     }}
                       className="flex-1 py-3 bg-amber/10 text-amber rounded-xl font-semibold text-sm hover:bg-amber/20 transition-colors border border-amber/30">
-                      Share
+                      {t('live.share', language)}
                     </button>
                   </div>
                   <button onClick={saveChannels}
                     disabled={saving}
                     className="w-full py-4 bg-amber text-white rounded-2xl font-semibold text-lg hover:bg-amber/90 disabled:opacity-50 transition-all min-h-[52px]">
-                    {saving ? 'Going live...' : 'Go Live!'}
+                    {saving ? 'Going live...' : t('channels.goLive', language)}
                   </button>
                 </>
               ) : (
@@ -2334,7 +2335,7 @@ export default function OnboardingPage() {
       {step === 'preview' && (
         <div className="max-w-xl mx-auto px-4 pb-6">
           <div className="bg-white rounded-2xl p-6 border border-border">
-            <p className="text-center text-warm-gray text-sm mb-4">This is how customers will see your shop</p>
+            <p className="text-center text-warm-gray text-sm mb-4">{t('preview.subtitle', language)}</p>
 
             {/* Mock storefront header */}
             <div className="bg-cream rounded-2xl p-5 mb-4">
@@ -2376,7 +2377,7 @@ export default function OnboardingPage() {
 
             {/* Shop link preview */}
             <div className="bg-cream/50 rounded-xl p-3 mb-6 text-center">
-              <p className="text-[10px] text-warm-gray uppercase tracking-wider font-semibold mb-1">Your shop link</p>
+              <p className="text-[10px] text-warm-gray uppercase tracking-wider font-semibold mb-1">{t('preview.yourLink', language)}</p>
               <p className="font-mono text-sm text-ink break-all">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/{slug}
               </p>
@@ -2385,11 +2386,11 @@ export default function OnboardingPage() {
             {/* Action buttons */}
             <button onClick={() => setStep('live')}
               className="w-full py-4 bg-amber text-white rounded-2xl font-bold text-lg hover:bg-amber/90 transition-all min-h-[52px] active:scale-[0.98] mb-3">
-              Looks good, go live!
+              {t('preview.looksGood', language)}
             </button>
             <button onClick={() => setStep('channels')}
               className="w-full py-3 bg-cream text-ink rounded-2xl font-semibold text-sm hover:bg-cream/70 transition-colors border border-border">
-              Go back &amp; edit
+              {t('preview.goBack', language)}
             </button>
           </div>
         </div>
@@ -2401,28 +2402,28 @@ export default function OnboardingPage() {
           <div className="bg-white rounded-2xl p-6 border border-border text-center">
             {/* Celebration */}
             <div className="text-7xl mb-2 animate-bounce">🎉</div>
-            <h1 className="font-display text-3xl text-ink mb-1">YOU&apos;RE LIVE!</h1>
+            <h1 className="font-display text-3xl text-ink mb-1">{t('live.title', language)}</h1>
             <p className="text-warm-gray text-base mb-6">
-              <span className="font-semibold text-ink">{businessName || 'Your shop'}</span> is open for orders
+              <span className="font-semibold text-ink">{businessName || 'Your shop'}</span> {t('live.subtitle', language)}
             </p>
 
             {/* Shop link */}
             <div className="bg-cream rounded-2xl p-5 mb-6">
-              <p className="text-[10px] text-warm-gray uppercase tracking-wider font-semibold mb-2">Your shop link</p>
+              <p className="text-[10px] text-warm-gray uppercase tracking-wider font-semibold mb-2">{t('live.shopLink', language)}</p>
               <p className="font-mono font-semibold text-ink text-sm break-all mb-3">
                 {typeof window !== 'undefined' ? window.location.origin : ''}/{slug}
               </p>
               <div className="flex gap-2">
                 <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/${slug}`); }}
                   className="flex-1 py-3 bg-ink text-white rounded-xl font-semibold text-sm hover:bg-ink/90 transition-colors active:scale-[0.97]">
-                  Copy Link
+                  {t('live.copy', language)}
                 </button>
                 <button onClick={() => {
                   if (navigator.share) navigator.share({ title: businessName, url: `${window.location.origin}/${slug}` });
                   else window.open(`https://wa.me/?text=${encodeURIComponent(`Check out ${businessName}! ${window.location.origin}/${slug}`)}`, '_blank');
                 }}
                   className="flex-1 py-3 bg-amber text-white rounded-xl font-semibold text-sm hover:bg-amber/90 transition-colors active:scale-[0.97]">
-                  Share
+                  {t('live.share', language)}
                 </button>
               </div>
             </div>
@@ -2432,19 +2433,19 @@ export default function OnboardingPage() {
               <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Hey! I just launched my business on Klovi. Check it out: ${window.location.origin}/${slug}`)}`, '_blank')}
                 className="w-full flex items-center gap-3 py-3.5 px-4 bg-green/10 rounded-xl hover:bg-green/20 transition-colors text-left">
                 <span className="text-xl">🟢</span>
-                <span className="text-sm font-medium text-ink flex-1">Share to WhatsApp group</span>
+                <span className="text-sm font-medium text-ink flex-1">{t('live.shareWhatsApp', language)}</span>
                 <span className="text-warm-gray text-sm">&rarr;</span>
               </button>
               <button onClick={() => window.open(`https://www.instagram.com/`, '_blank')}
                 className="w-full flex items-center gap-3 py-3.5 px-4 bg-purple/10 rounded-xl hover:bg-purple/20 transition-colors text-left">
                 <span className="text-xl">📸</span>
-                <span className="text-sm font-medium text-ink flex-1">Share to Instagram story</span>
+                <span className="text-sm font-medium text-ink flex-1">{t('live.shareInsta', language)}</span>
                 <span className="text-warm-gray text-sm">&rarr;</span>
               </button>
               <button onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/${slug}`)}`, '_blank')}
                 className="w-full flex items-center gap-3 py-3.5 px-4 bg-blue/10 rounded-xl hover:bg-blue/20 transition-colors text-left">
                 <span className="text-xl">📘</span>
-                <span className="text-sm font-medium text-ink flex-1">Share to Facebook</span>
+                <span className="text-sm font-medium text-ink flex-1">{t('live.shareFb', language)}</span>
                 <span className="text-warm-gray text-sm">&rarr;</span>
               </button>
             </div>
@@ -2454,18 +2455,18 @@ export default function OnboardingPage() {
               <div className="bg-cream rounded-2xl p-4 mb-6 text-left">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">✨</span>
-                  <p className="text-sm font-semibold text-ink">Share your launch post</p>
+                  <p className="text-sm font-semibold text-ink">{t('live.launchPost', language)}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={downloadLaunchPost}
                     className="flex-1 py-2.5 bg-white border border-border rounded-lg text-xs font-semibold text-ink hover:bg-cream transition-colors">
-                    Download Image
+                    {t('live.downloadImage', language)}
                   </button>
                   <button onClick={() => {
                     if (navigator.share) navigator.share({ title: `${businessName} is live!`, url: `${window.location.origin}/${slug}` });
                   }}
                     className="flex-1 py-2.5 bg-amber text-white rounded-lg text-xs font-semibold hover:bg-amber/90 transition-colors">
-                    Share Now
+                    {t('live.shareNow', language)}
                   </button>
                 </div>
               </div>
@@ -2474,7 +2475,7 @@ export default function OnboardingPage() {
             {/* Go to Dashboard */}
             <button onClick={() => { router.push('/dashboard'); router.refresh(); }}
               className="w-full py-4 bg-amber text-white rounded-2xl font-bold text-lg hover:bg-amber/90 transition-all min-h-[52px] active:scale-[0.98]">
-              Go to my Dashboard
+              {t('live.dashboard', language)}
             </button>
           </div>
         </div>
