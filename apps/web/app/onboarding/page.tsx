@@ -3,9 +3,26 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { CATALOG_CATEGORIES, CATALOG_PRODUCTS, BUSINESS_TYPE_TO_CATEGORIES, type CatalogProduct } from '@/data/product-catalog';
+import { BUSINESS_TYPE_TO_CATEGORIES } from '@/data/product-catalog';
 
-type Step = 'setup' | 'products' | 'import' | 'channels' | 'live';
+// Local type matching DB catalog_products shape (camelCase)
+interface CatalogProduct {
+  name: string;
+  category: string;
+  parentCategory: string;
+  title: string;
+  description: string;
+  highlights: string;
+  variants: string[];
+  quantity: string;
+  priceMin: number;
+  priceMax: number;
+  dietary: string[];
+  pexelsQuery?: string;
+  imageUrl?: string;
+}
+
+type Step = 'setup' | 'products' | 'import' | 'channels' | 'preview' | 'live';
 
 interface Variant { label: string; price: number; qty: number | null; }
 interface Product {
@@ -192,11 +209,45 @@ export default function OnboardingPage() {
   const [catalogPhotos, setCatalogPhotos] = useState<Record<string, string>>({});
   const catalogPhotosFetched = useRef<Set<string>>(new Set());
 
+  // DB-fetched catalog data (replaces static imports)
+  const [dbCategories, setDbCategories] = useState<{id: number; name: string; emoji: string; color: string}[]>([]);
+  const [dbProducts, setDbProducts] = useState<CatalogProduct[]>([]);
+
   // AI-generated catalog for custom business types
   const [aiCatalogProducts, setAiCatalogProducts] = useState<CatalogProduct[]>([]);
   const [aiCatalogCategories, setAiCatalogCategories] = useState<{ id: number; name: string; emoji: string; color: string }[]>([]);
   const [generatingCatalog, setGeneratingCatalog] = useState(false);
   const aiCatalogGenerated = useRef<string>(''); // track what type we generated for
+
+  // Fetch catalog categories and products from Supabase on mount
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      const supabase = createClient();
+      const [catRes, prodRes] = await Promise.all([
+        supabase.from('catalog_categories').select('id, name, emoji, color').eq('enabled', true).order('sort_order'),
+        supabase.from('catalog_products').select('*').eq('enabled', true).order('sort_order'),
+      ]);
+      if (catRes.data) setDbCategories(catRes.data);
+      if (prodRes.data) {
+        setDbProducts(prodRes.data.map((p: any) => ({
+          name: p.name,
+          category: p.category,
+          parentCategory: p.parent_category,
+          title: p.title,
+          description: p.description || '',
+          highlights: p.highlights || '',
+          variants: p.variants || [],
+          quantity: p.quantity || '',
+          priceMin: p.price_min || 0,
+          priceMax: p.price_max || 0,
+          dietary: p.dietary || [],
+          pexelsQuery: p.pexels_query || undefined,
+          imageUrl: p.image_url || undefined,
+        })));
+      }
+    };
+    fetchCatalog();
+  }, []);
 
   // Get relevant catalog categories based on business types
   // Check if we have mapped categories from known business types
@@ -207,7 +258,7 @@ export default function OnboardingPage() {
     });
     if (customType) {
       const words = customType.toLowerCase().split(/[\s,]+/).filter(Boolean);
-      CATALOG_CATEGORIES.forEach(cat => {
+      dbCategories.forEach(cat => {
         const catLower = cat.name.toLowerCase();
         if (words.some(w => catLower.includes(w) || w.includes(catLower.split(' ')[0].toLowerCase()))) {
           catNames.add(cat.name);
@@ -215,7 +266,7 @@ export default function OnboardingPage() {
       });
     }
     return catNames.size > 0;
-  }, [businessTypes, customType]);
+  }, [businessTypes, customType, dbCategories]);
 
   const relevantCategories = useMemo(() => {
     const catNames = new Set<string>();
@@ -224,7 +275,7 @@ export default function OnboardingPage() {
     });
     if (customType) {
       const words = customType.toLowerCase().split(/[\s,]+/).filter(Boolean);
-      CATALOG_CATEGORIES.forEach(cat => {
+      dbCategories.forEach(cat => {
         const catLower = cat.name.toLowerCase();
         if (words.some(w => catLower.includes(w) || w.includes(catLower.split(' ')[0].toLowerCase()))) {
           catNames.add(cat.name);
@@ -232,9 +283,9 @@ export default function OnboardingPage() {
       });
     }
     // Use pre-built categories if matched, otherwise use AI-generated ones
-    if (catNames.size > 0) return CATALOG_CATEGORIES.filter(c => catNames.has(c.name));
+    if (catNames.size > 0) return dbCategories.filter(c => catNames.has(c.name));
     return aiCatalogCategories;
-  }, [businessTypes, customType, aiCatalogCategories]);
+  }, [businessTypes, customType, dbCategories, aiCatalogCategories]);
 
   const filteredCatalogProducts = useMemo(() => {
     const catNames = new Set<string>();
@@ -243,7 +294,7 @@ export default function OnboardingPage() {
     });
     if (customType) {
       const words = customType.toLowerCase().split(/[\s,]+/).filter(Boolean);
-      CATALOG_CATEGORIES.forEach(cat => {
+      dbCategories.forEach(cat => {
         const catLower = cat.name.toLowerCase();
         if (words.some(w => catLower.includes(w) || w.includes(catLower.split(' ')[0].toLowerCase()))) {
           catNames.add(cat.name);
@@ -252,13 +303,13 @@ export default function OnboardingPage() {
     }
     let prods: CatalogProduct[];
     if (catNames.size > 0) {
-      prods = CATALOG_PRODUCTS.filter(p => catNames.has(p.parentCategory));
+      prods = dbProducts.filter(p => catNames.has(p.parentCategory));
     } else {
       prods = aiCatalogProducts; // use AI-generated products
     }
     if (catalogFilter) prods = prods.filter(p => p.parentCategory === catalogFilter);
     return prods;
-  }, [businessTypes, catalogFilter, customType, aiCatalogProducts]);
+  }, [businessTypes, catalogFilter, customType, dbCategories, dbProducts, aiCatalogProducts]);
 
   // Generate AI catalog for custom/unknown business types
   const generateAiCatalog = useCallback(async () => {
@@ -325,6 +376,16 @@ export default function OnboardingPage() {
   // Fetch Pexels photos for all visible catalog products
   useEffect(() => {
     if (!catalogOpen) return;
+    // Pre-populate catalogPhotos with DB imageUrl (founder-uploaded images)
+    const dbImageUpdates: Record<string, string> = {};
+    filteredCatalogProducts.forEach(p => {
+      if (p.imageUrl && !catalogPhotos[p.name]) {
+        dbImageUpdates[p.name] = p.imageUrl;
+        catalogPhotosFetched.current.add(p.name); // skip Pexels for these
+      }
+    });
+    if (Object.keys(dbImageUpdates).length > 0) setCatalogPhotos(prev => ({ ...prev, ...dbImageUpdates }));
+
     const toFetch = filteredCatalogProducts
       .filter(p => !catalogPhotosFetched.current.has(p.name));
     if (toFetch.length === 0) return;
@@ -358,7 +419,7 @@ export default function OnboardingPage() {
 
   const addCatalogProducts = () => {
     // Search both pre-built AND AI-generated products
-    const allCatalog = [...CATALOG_PRODUCTS, ...aiCatalogProducts];
+    const allCatalog = [...dbProducts, ...aiCatalogProducts];
     const selected = allCatalog.filter(p => catalogSelected.has(p.name));
     const newProds: Product[] = selected.map(cp => ({
       name: cp.name,
@@ -368,7 +429,7 @@ export default function OnboardingPage() {
       highlight: cp.highlights,
       variants: cp.variants.map(v => ({ label: v, price: 0, qty: null })),
       stock: null,
-      image: catalogPhotos[cp.name] || null,
+      image: cp.imageUrl || catalogPhotos[cp.name] || null,
       ingredients: [],
     }));
     setProducts(prev => [...prev, ...newProds]);
@@ -759,7 +820,7 @@ export default function OnboardingPage() {
     };
     if (upiId) updates.upi_id = upiId;
     await supabase.from('sellers').update(updates).eq('id', sellerId);
-    setSaving(false); setStep('live');
+    setSaving(false); setStep('preview');
   };
 
   // Launch post — full bleed Pexels background poster
@@ -854,7 +915,7 @@ export default function OnboardingPage() {
   };
 
   // ─── Progress ─────────────────────────────────────────────────────────────
-  const stepsArr: Step[] = ['setup', 'products', 'import', 'channels', 'live'];
+  const stepsArr: Step[] = ['setup', 'products', 'import', 'channels', 'preview', 'live'];
   const progress = `${((stepsArr.indexOf(step) + 1) / stepsArr.length) * 100}%`;
 
   const BUSINESS_TYPES = [
@@ -1004,6 +1065,7 @@ export default function OnboardingPage() {
             <span className={step === 'products' ? 'text-amber font-bold' : ''}>Products</span>
             <span className={step === 'import' ? 'text-amber font-bold' : ''}>Import</span>
             <span className={step === 'channels' ? 'text-amber font-bold' : ''}>Channels</span>
+            <span className={step === 'preview' ? 'text-amber font-bold' : ''}>Preview</span>
             <span className={step === 'live' ? 'text-amber font-bold' : ''}>Live!</span>
           </div>
         </div>
@@ -1568,7 +1630,7 @@ export default function OnboardingPage() {
                     {filteredCatalogProducts.map((cp) => {
                       const isSelected = catalogSelected.has(cp.name);
                       const alreadyAdded = products.some(p => p.name === cp.name);
-                      const cat = CATALOG_CATEGORIES.find(c => c.name === cp.parentCategory);
+                      const cat = dbCategories.find(c => c.name === cp.parentCategory);
                       return (
                         <button key={cp.name}
                           disabled={alreadyAdded}
@@ -2268,7 +2330,72 @@ export default function OnboardingPage() {
         </div>
       )}
 
-      {/* ═══ STEP 4: LIVE! — THE WOW MOMENT ═══ */}
+      {/* ═══ STEP 4b: PREVIEW — SEE YOUR SHOP BEFORE GOING LIVE ═══ */}
+      {step === 'preview' && (
+        <div className="max-w-xl mx-auto px-4 pb-6">
+          <div className="bg-white rounded-2xl p-6 border border-border">
+            <p className="text-center text-warm-gray text-sm mb-4">This is how customers will see your shop</p>
+
+            {/* Mock storefront header */}
+            <div className="bg-cream rounded-2xl p-5 mb-4">
+              <h2 className="font-display text-2xl text-ink text-center">{businessName || 'Your Shop'}</h2>
+              {city && <p className="text-warm-gray text-sm text-center mt-1">{city}</p>}
+            </div>
+
+            {/* Product grid preview */}
+            {products.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {products.map((p, i) => (
+                  <div key={i} className="bg-cream rounded-xl overflow-hidden border border-border">
+                    {p.image ? (
+                      <div className="aspect-square bg-warm-gray/10 relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-warm-gray/5 flex items-center justify-center">
+                        <span className="text-3xl">{getEmoji(p.category)}</span>
+                      </div>
+                    )}
+                    <div className="p-2.5">
+                      <p className="text-sm font-semibold text-ink truncate">{p.name}</p>
+                      <p className="text-xs text-warm-gray mt-0.5">
+                        {p.variants.length > 0
+                          ? `${currencySymbol}${Math.min(...p.variants.map(v => v.price))}+`
+                          : `${currencySymbol}${p.price}`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 mb-6">
+                <p className="text-warm-gray text-sm">No products added yet</p>
+              </div>
+            )}
+
+            {/* Shop link preview */}
+            <div className="bg-cream/50 rounded-xl p-3 mb-6 text-center">
+              <p className="text-[10px] text-warm-gray uppercase tracking-wider font-semibold mb-1">Your shop link</p>
+              <p className="font-mono text-sm text-ink break-all">
+                {typeof window !== 'undefined' ? window.location.origin : ''}/{slug}
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <button onClick={() => setStep('live')}
+              className="w-full py-4 bg-amber text-white rounded-2xl font-bold text-lg hover:bg-amber/90 transition-all min-h-[52px] active:scale-[0.98] mb-3">
+              Looks good, go live!
+            </button>
+            <button onClick={() => setStep('channels')}
+              className="w-full py-3 bg-cream text-ink rounded-2xl font-semibold text-sm hover:bg-cream/70 transition-colors border border-border">
+              Go back &amp; edit
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 5: LIVE! — THE WOW MOMENT ═══ */}
       {step === 'live' && (
         <div className="max-w-xl mx-auto px-4 pb-6">
           <div className="bg-white rounded-2xl p-6 border border-border text-center">
