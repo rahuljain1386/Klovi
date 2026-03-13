@@ -54,6 +54,11 @@ export default function AdminCatalog() {
   // Generate AI image
   const [generatingAI, setGeneratingAI] = useState<string | null>(null);
 
+  // Bulk generation
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, currentName: '', failed: 0 });
+  const [bulkStopRef] = useState<{ stop: boolean }>({ stop: false });
+
   useEffect(() => {
     loadData();
   }, []);
@@ -148,6 +153,58 @@ export default function AdminCatalog() {
       alert('Failed to generate image');
     }
     setGeneratingAI(null);
+  };
+
+  // Bulk generate AI images for all products (or those missing images)
+  const bulkGenerateImages = async (onlyMissing: boolean) => {
+    const targets = onlyMissing ? products.filter(p => !p.image_url) : [...products];
+    if (targets.length === 0) { alert('No products to generate images for.'); return; }
+    if (!confirm(`Generate AI images for ${targets.length} products? This will take ~${Math.ceil(targets.length * 15 / 60)} minutes and cost ~$${(targets.length * 0.08).toFixed(2)}.`)) return;
+
+    setBulkRunning(true);
+    bulkStopRef.stop = false;
+    setBulkProgress({ current: 0, total: targets.length, currentName: '', failed: 0 });
+    let failed = 0;
+
+    for (let i = 0; i < targets.length; i++) {
+      if (bulkStopRef.stop) break;
+
+      const product = targets[i];
+      setBulkProgress(prev => ({ ...prev, current: i + 1, currentName: product.title || product.name }));
+      setGeneratingAI(product.id);
+
+      try {
+        const res = await fetch('/api/ai/generate-catalog-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId: product.id, name: product.title || product.name, category: product.parent_category, description: product.description }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          setProducts(prev => prev.map(p => p.id === product.id ? { ...p, image_url: data.url } : p));
+        } else {
+          failed++;
+          setBulkProgress(prev => ({ ...prev, failed }));
+        }
+      } catch {
+        failed++;
+        setBulkProgress(prev => ({ ...prev, failed }));
+      }
+
+      setGeneratingAI(null);
+
+      // Wait 15 seconds between images to stay under rate limit (4/min)
+      if (i < targets.length - 1 && !bulkStopRef.stop) {
+        await new Promise(resolve => setTimeout(resolve, 15000));
+      }
+    }
+
+    setBulkRunning(false);
+    setGeneratingAI(null);
+  };
+
+  const stopBulkGeneration = () => {
+    bulkStopRef.stop = true;
   };
 
   // Save edited product
@@ -265,6 +322,50 @@ export default function AdminCatalog() {
           <button onClick={() => setShowAdd(true)} className="px-4 py-2 bg-amber text-white rounded-lg text-sm font-medium hover:bg-amber/90">+ Add Product</button>
         </div>
       </div>
+
+      {/* Bulk AI Image Generation */}
+      {bulkRunning ? (
+        <div className="bg-purple-50 rounded-xl border border-purple-200 p-4 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="animate-pulse text-lg">✨</span>
+              <span className="text-sm font-medium text-purple-900">
+                Generating {bulkProgress.current} of {bulkProgress.total}: {bulkProgress.currentName}
+              </span>
+            </div>
+            <button onClick={stopBulkGeneration} className="px-3 py-1 bg-rose-100 text-rose-700 text-xs font-medium rounded-lg hover:bg-rose-200">
+              Stop
+            </button>
+          </div>
+          <div className="w-full bg-purple-200 rounded-full h-2">
+            <div
+              className="bg-purple-600 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${(bulkProgress.current / bulkProgress.total) * 100}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-1.5 text-xs text-purple-700">
+            <span>~{Math.ceil((bulkProgress.total - bulkProgress.current) * 15 / 60)} min remaining</span>
+            {bulkProgress.failed > 0 && <span className="text-rose-600">{bulkProgress.failed} failed</span>}
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => bulkGenerateImages(true)}
+            disabled={!!generatingAI}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50"
+          >
+            ✨ Generate Missing Images ({products.filter(p => !p.image_url).length})
+          </button>
+          <button
+            onClick={() => bulkGenerateImages(false)}
+            disabled={!!generatingAI}
+            className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200 disabled:opacity-50"
+          >
+            ✨ Regenerate All ({products.length})
+          </button>
+        </div>
+      )}
 
       {/* Category tabs with enable/disable toggle */}
       {!search && (
