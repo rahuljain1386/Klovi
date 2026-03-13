@@ -26,26 +26,45 @@ export async function POST(request: Request) {
 
     const openai = new OpenAI({ apiKey: openaiKey });
 
-    // Build a detailed, context-aware prompt
-    const productDesc = description ? ` — ${description}` : '';
-    const prompt = [
-      `A professional e-commerce product photograph of: "${name}"${productDesc}.`,
-      `Category: ${category || 'general'}.`,
-      `Requirements:`,
-      `- Show EXACTLY this specific product, not a similar or related item`,
-      `- Flat lay or slightly elevated angle on a clean, minimal background`,
-      `- Soft, even studio lighting — no harsh shadows`,
-      `- Photorealistic, like a real product listing on Amazon or Etsy`,
-      `- The product should fill most of the frame`,
-      `- No humans, no hands, no mannequins, no text, no labels, no watermarks`,
-      `- No other objects or props — just the product itself`,
-      `- High detail and sharp focus`,
-    ].join('\n');
+    // Step 1: Use GPT-4o to write a culturally-accurate DALL-E prompt
+    const gptResponse = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert product photographer who specializes in Indian and South Asian products.
+Your job is to write a DALL-E 3 image generation prompt for a product listing.
 
-    // Generate image with DALL-E 3
+CRITICAL RULES:
+- You deeply understand Indian products. For example:
+  - "Blouse" in Indian context = a short, fitted saree blouse (choli), NOT a Western button-up blouse
+  - "Kurti" = a long Indian tunic for women
+  - "Ladoo/Laddu" = round Indian sweet balls
+  - "Thali" = a round steel plate with small bowls of different dishes
+  - "Dosa" = thin crispy South Indian crepe
+- Describe the product with precise visual details so DALL-E generates the CORRECT item
+- Always specify it's a product-only photo: no people, no hands, no mannequins
+- Specify: clean white/light background, studio lighting, flat lay or 45-degree angle
+- Keep the prompt under 200 words
+- Output ONLY the prompt text, nothing else`
+        },
+        {
+          role: 'user',
+          content: `Product: "${name}"\nCategory: ${category || 'general'}\nDescription: ${description || 'none'}`
+        }
+      ],
+      max_tokens: 300,
+    });
+
+    const dallePrompt = gptResponse.choices[0]?.message?.content?.trim();
+    if (!dallePrompt) {
+      return NextResponse.json({ error: 'Failed to generate prompt' }, { status: 500 });
+    }
+
+    // Step 2: Generate image with DALL-E 3 using the smart prompt
     const response = await openai.images.generate({
       model: 'dall-e-3',
-      prompt,
+      prompt: dallePrompt,
       n: 1,
       size: '1024x1024',
       quality: 'hd',
