@@ -51,6 +51,8 @@ export default function AdminCatalog() {
 
   // Fetch Pexels
   const [fetchingImage, setFetchingImage] = useState<string | null>(null);
+  // Generate AI image
+  const [generatingAI, setGeneratingAI] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -125,6 +127,27 @@ export default function AdminCatalog() {
       }
     } catch {}
     setFetchingImage(null);
+  };
+
+  // Generate AI image (DALL-E 3)
+  const generateAIImage = async (product: CatalogProduct) => {
+    setGeneratingAI(product.id);
+    try {
+      const res = await fetch('/api/ai/generate-catalog-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: product.id, name: product.name, category: product.parent_category }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        setProducts(prev => prev.map(p => p.id === product.id ? { ...p, image_url: data.url } : p));
+      } else {
+        alert(data.error || 'Failed to generate image');
+      }
+    } catch {
+      alert('Failed to generate image');
+    }
+    setGeneratingAI(null);
   };
 
   // Save edited product
@@ -321,21 +344,54 @@ export default function AdminCatalog() {
         {filtered.map(product => (
           <div key={product.id} className={`bg-white rounded-xl border overflow-hidden ${product.enabled ? 'border-border' : 'border-border opacity-50'}`}>
             {/* Image */}
-            <div className="h-40 bg-cream flex items-center justify-center relative">
+            <div className="h-40 bg-cream flex items-center justify-center relative group">
               {product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                <>
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                  {/* Regenerate overlay on hover */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => generateAIImage(product)}
+                      disabled={generatingAI === product.id}
+                      className="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {generatingAI === product.id ? '✨ Generating...' : '✨ AI Regen'}
+                    </button>
+                    <button
+                      onClick={() => fetchPexelsImage(product)}
+                      disabled={fetchingImage === product.id}
+                      className="px-3 py-1.5 bg-white text-ink text-xs font-medium rounded-lg hover:bg-gray-100 disabled:opacity-50"
+                    >
+                      {fetchingImage === product.id ? 'Fetching...' : '📷 Pexels'}
+                    </button>
+                  </div>
+                </>
               ) : (
-                <button
-                  onClick={() => fetchPexelsImage(product)}
-                  disabled={fetchingImage === product.id}
-                  className="text-warm-gray hover:text-ink text-sm transition-colors"
-                >
-                  {fetchingImage === product.id ? <span className="animate-pulse">Fetching...</span> : 'Click to fetch image'}
-                </button>
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    onClick={() => generateAIImage(product)}
+                    disabled={generatingAI === product.id}
+                    className="px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                  >
+                    {generatingAI === product.id ? <span className="animate-pulse">✨ Generating...</span> : '✨ Generate AI Image'}
+                  </button>
+                  <button
+                    onClick={() => fetchPexelsImage(product)}
+                    disabled={fetchingImage === product.id}
+                    className="text-warm-gray hover:text-ink text-xs transition-colors"
+                  >
+                    {fetchingImage === product.id ? 'Fetching...' : 'or fetch from Pexels'}
+                  </button>
+                </div>
               )}
               <span className="absolute top-2 left-2 text-[10px] bg-white/90 text-ink px-2 py-0.5 rounded-full border border-border">
                 {product.category}
               </span>
+              {generatingAI === product.id && (
+                <div className="absolute inset-0 bg-purple-900/60 flex items-center justify-center">
+                  <div className="text-white text-sm font-medium animate-pulse">✨ Generating with DALL-E 3...</div>
+                </div>
+              )}
               {!product.enabled && (
                 <span className="absolute top-2 right-2 text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full">HIDDEN</span>
               )}
