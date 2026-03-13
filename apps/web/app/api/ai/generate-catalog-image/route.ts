@@ -99,6 +99,20 @@ CRITICAL RULES:
     return NextResponse.json({ url: urlData.publicUrl });
   } catch (err: any) {
     console.error('Generate catalog image error:', err);
-    return NextResponse.json({ error: err?.message || 'Failed to generate image' }, { status: 500 });
+    const status = err?.status || 500;
+    let message = err?.message || 'Failed to generate image';
+
+    // Friendly messages for common OpenAI errors
+    if (status === 429 || message.includes('rate_limit') || message.includes('Rate limit')) {
+      message = 'Rate limit reached — DALL-E allows ~5 images per minute. Wait 60 seconds and try again.';
+    } else if (message.includes('content_policy') || message.includes('safety')) {
+      message = 'Image was blocked by content policy. Try editing the product name/description.';
+    } else if (status === 401) {
+      message = 'OpenAI API key is invalid or expired.';
+    } else if (status === 402 || message.includes('billing') || message.includes('quota')) {
+      message = 'OpenAI billing limit reached. Check your OpenAI account billing.';
+    }
+
+    return NextResponse.json({ error: message }, { status });
   }
 }
