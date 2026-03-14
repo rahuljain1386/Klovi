@@ -27,6 +27,7 @@ interface Seller {
   slug: string;
   category: string;
   city: string;
+  country?: string;
   allows_custom_orders: boolean;
   delivery_type?: string;
   fulfillment_modes?: string[];
@@ -38,7 +39,37 @@ interface Props {
   waNumber: string;
   businessName: string;
   category: string;
+  country?: string;
 }
+
+// Human-readable category labels
+const CATEGORY_LABELS: Record<string, string> = {
+  stitching: 'Stitching & Tailoring',
+  tailoring: 'Tailoring',
+  food: 'Home Food',
+  bakery: 'Bakery',
+  snacks: 'Snacks',
+  pickle: 'Pickles & Preserves',
+  sweets: 'Sweets',
+  jewelry: 'Jewelry',
+  beauty: 'Beauty & Skincare',
+  crafts: 'Handmade Crafts',
+  coaching: 'Coaching',
+  tutoring: 'Tutoring',
+  wellness: 'Wellness',
+  clothing: 'Clothing & Fashion',
+  plants: 'Plants & Garden',
+  fitness: 'Fitness',
+  candle: 'Candles',
+  chocolate: 'Chocolates',
+  healing: 'Healing & Spiritual',
+  nutrition: 'Nutrition',
+  services: 'Services',
+  healthy: 'Healthy Snacks',
+  masala: 'Spices & Masala',
+  hamper: 'Gift Hampers',
+  tiffin: 'Tiffin Service',
+};
 
 // Category icon fallbacks
 const CAT_ICON: Record<string, { icon: string; bg: string }> = {
@@ -71,7 +102,16 @@ function parseVariants(v: any): Variant[] {
   return [];
 }
 
-export default function StorefrontProducts({ products, seller, waNumber, businessName, category }: Props) {
+function getCategoryLabel(raw: string): string {
+  const l = raw.toLowerCase();
+  for (const [k, v] of Object.entries(CATEGORY_LABELS)) {
+    if (l.includes(k)) return v;
+  }
+  // Capitalize first letter as fallback
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+export default function StorefrontProducts({ products, seller, waNumber, businessName, category, country }: Props) {
   // State
   const [activeTab, setActiveTab] = useState('All');
   const [productImages, setProductImages] = useState<Record<string, string>>({});
@@ -88,10 +128,10 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
   const loaderRef = useRef<HTMLDivElement>(null);
   const tabRef = useRef<HTMLButtonElement>(null);
 
-  const sym = (products[0]?.currency || seller.category) ? (seller.city?.toLowerCase().includes('india') || category?.toLowerCase().includes('india') ? '₹' : '₹') : '$';
-  // Determine currency from first product or default
-  const currency = products[0]?.currency || 'INR';
-  const currSym = currency === 'INR' ? '₹' : '$';
+  // Currency: use seller's country, then product currency, then default
+  const isIndia = (country || seller.country || '').toLowerCase() === 'india';
+  const currSym = isIndia ? '₹' : '$';
+  const currency = isIndia ? 'INR' : 'USD';
 
   // Layout detection
   const useGridLayout = ['bakery', 'sweets', 'snacks', 'pickle', 'chocolate', 'jewelry', 'candle', 'plants', 'beauty', 'hamper', 'healthy', 'masala', 'food'].some(c => category.toLowerCase().includes(c));
@@ -241,7 +281,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
                     activeTab === cat ? 'bg-ink text-white' : 'bg-white text-warm-gray border border-border hover:border-amber'
                   }`}
                 >
-                  {cat} ({tabCounts[cat]})
+                  {cat === 'All' ? 'All' : getCategoryLabel(cat)} ({tabCounts[cat]})
                 </button>
               ))}
             </div>
@@ -300,6 +340,9 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
                     <p className="font-display font-bold text-amber text-[14px] mt-1">
                       {currSym}{minP}{maxP > minP ? `–${currSym}${maxP}` : ''}
                     </p>
+                    {variants.length > 0 && (
+                      <p className="text-[10px] text-warm-gray mt-0.5">{variants.length} options available</p>
+                    )}
                     <button onClick={(e) => { e.stopPropagation(); openSheet(product); }} className="mt-2 w-full h-9 rounded-lg bg-amber/10 text-amber text-[11px] font-semibold flex items-center justify-center hover:bg-amber hover:text-white transition-colors border border-amber/20">
                       Order →
                     </button>
@@ -405,7 +448,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
             <div className="p-4">
               {/* Category badge + name */}
               {selectedProduct.category && (
-                <span className="text-[10px] bg-amber/10 text-amber font-bold px-2 py-0.5 rounded-full">{selectedProduct.category}</span>
+                <span className="text-[10px] bg-amber/10 text-amber font-bold px-2 py-0.5 rounded-full">{getCategoryLabel(selectedProduct.category)}</span>
               )}
               <h3 className="font-display text-2xl font-black text-ink mt-1">{selectedProduct.name}</h3>
 
@@ -497,17 +540,26 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
               {/* CTA */}
               <div className="pb-28 pt-3">
                 {waNumber ? (
-                  <a
-                    href={`https://wa.me/${waNumber}?text=${encodeURIComponent(orderMessage)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full h-14 rounded-2xl bg-green text-white font-semibold text-base flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all"
-                  >
-                    💬 Order on WhatsApp
-                    {selectedVariant && (
-                      <span className="text-green-200 text-sm font-normal ml-1">· {currSym}{selectedVariant.price}</span>
-                    )}
-                  </a>
+                  messageLoading ? (
+                    <button
+                      disabled
+                      className="w-full h-14 rounded-2xl bg-green/60 text-white font-semibold text-base flex items-center justify-center gap-2 cursor-not-allowed"
+                    >
+                      Preparing message...
+                    </button>
+                  ) : (
+                    <a
+                      href={`https://wa.me/${waNumber}?text=${encodeURIComponent(orderMessage)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full h-14 rounded-2xl bg-green text-white font-semibold text-base flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all"
+                    >
+                      💬 Order on WhatsApp
+                      {selectedVariant && (
+                        <span className="text-green-200 text-sm font-normal ml-1">· {currSym}{selectedVariant.price}</span>
+                      )}
+                    </a>
+                  )
                 ) : (
                   <span className="w-full h-14 rounded-2xl bg-gray-200 text-warm-gray text-base flex items-center justify-center">WhatsApp not available</span>
                 )}

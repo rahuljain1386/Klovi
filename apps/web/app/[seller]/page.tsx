@@ -84,8 +84,8 @@ export default async function SellerStorefront({ params }: Props) {
   const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!seller) notFound();
 
-  // Show products that are active OR have no status set (older products before status field was added)
-  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).or('status.eq.active,status.is.null').order('sort_order');
+  // Products: status defaults to 'active' (NOT NULL per DB constraint), so just filter active
+  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
   const { data: reviews } = await supabase.from('reviews').select('*, customers(name)').eq('seller_id', seller.id).eq('status', 'published').order('created_at', { ascending: false }).limit(10);
 
   const sym = seller.country === 'india' ? '₹' : '$';
@@ -116,8 +116,15 @@ export default async function SellerStorefront({ params }: Props) {
   const hasFb = !!seller.facebook_handle;
   const productCount = products?.length || 0;
 
-  // Hero photo: fetch from Pexels server-side if missing
+  // Hero photo: prefer seller's own cover/launch image, then first product image, then Pexels
   let heroUrl = seller.cover_photo_url || seller.launch_card_bg_url;
+  if (!heroUrl) {
+    // Try first product image
+    const firstProductImg = products?.find(p => p.images?.[0] || p.enhanced_images?.[0]);
+    if (firstProductImg) {
+      heroUrl = firstProductImg.images?.[0] || firstProductImg.enhanced_images?.[0];
+    }
+  }
   if (!heroUrl) {
     try {
       const query = getBgQuery(seller);
@@ -183,7 +190,7 @@ export default async function SellerStorefront({ params }: Props) {
               )}
               <div className="flex-1 min-w-0">
                 <h1 className="font-display text-lg font-black text-ink leading-tight truncate">{seller.business_name}</h1>
-                <p className="text-warm-gray text-xs mt-0.5">{theme.emoji} {seller.category} · 📍 {seller.city}{seller.state ? `, ${seller.state}` : ''}</p>
+                <p className="text-warm-gray text-xs mt-0.5">{theme.emoji} {(seller.category || '').charAt(0).toUpperCase() + (seller.category || '').slice(1)} · 📍 {seller.city}{seller.state ? `, ${seller.state}` : ''}</p>
                 {seller.average_rating > 0 && (
                   <p className="text-amber text-xs font-bold mt-0.5">⭐ {Number(seller.average_rating).toFixed(1)} · <span className="text-warm-gray font-normal">{seller.total_orders} orders</span></p>
                 )}
@@ -202,8 +209,13 @@ export default async function SellerStorefront({ params }: Props) {
               className="flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
               💬 WhatsApp
             </a>
+          ) : hasPhone ? (
+            <a href={`tel:${seller.phone}`}
+              className="flex-1 h-11 bg-amber text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
+              📞 Call to Order
+            </a>
           ) : (
-            <span className="flex-1 h-11 bg-gray-100 text-warm-gray rounded-xl text-sm flex items-center justify-center">WhatsApp not set up yet</span>
+            <span className="flex-1 h-11 bg-gray-100 text-warm-gray rounded-xl text-sm flex items-center justify-center">Contact via Klovi</span>
           )}
           {hasPhone && (
             <a href={`tel:${seller.phone}`} className="w-11 h-11 bg-cream border border-border rounded-xl flex items-center justify-center text-base">📞</a>
@@ -241,6 +253,7 @@ export default async function SellerStorefront({ params }: Props) {
             waNumber={orderWaNumber}
             businessName={seller.business_name}
             category={seller.category || ''}
+            country={seller.country || ''}
           />
         ) : (
           <div className="px-4 pb-4">
@@ -291,7 +304,7 @@ export default async function SellerStorefront({ params }: Props) {
         <div className="px-4 pb-28 pt-4">
           <div className="bg-white rounded-2xl border border-border p-5 text-center">
             <p className="font-display text-sm font-bold text-ink mb-1">{seller.business_name}</p>
-            <p className="text-[11px] text-warm-gray mb-3">{seller.category} · {seller.city}</p>
+            <p className="text-[11px] text-warm-gray mb-3">{(seller.category || '').charAt(0).toUpperCase() + (seller.category || '').slice(1)} · {seller.city}</p>
             <div className="flex items-center justify-center gap-3 mb-3">
               {contactWaNumber && (
                 <a href={contactWaLink} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-green/10 rounded-full flex items-center justify-center text-sm">💬</a>
@@ -316,8 +329,14 @@ export default async function SellerStorefront({ params }: Props) {
         {/* ═══ STICKY BAR ═══ */}
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50">
           <div className="bg-white/95 backdrop-blur-xl border-t border-border px-4 py-2.5 flex gap-2.5">
-            <a href={waLink} target="_blank" rel="noopener noreferrer" className={`${hasPhone ? 'flex-1' : 'w-full'} bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all`}>💬 WhatsApp</a>
-            {hasPhone && <a href={`tel:${seller.phone}`} className="w-14 h-12 rounded-2xl border-2 border-border bg-white flex items-center justify-center text-warm-gray hover:text-amber text-sm font-medium">📞</a>}
+            {hasWa ? (
+              <a href={waLink} target="_blank" rel="noopener noreferrer" className={`${hasPhone ? 'flex-1' : 'w-full'} bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all`}>💬 Order on WhatsApp</a>
+            ) : hasPhone ? (
+              <a href={`tel:${seller.phone}`} className="flex-1 bg-amber hover:bg-amber/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber/20 active:scale-[0.98] transition-all">📞 Call to Order</a>
+            ) : (
+              <span className="flex-1 bg-gray-200 text-warm-gray h-12 rounded-2xl text-sm flex items-center justify-center">Contact via Klovi</span>
+            )}
+            {hasWa && hasPhone && <a href={`tel:${seller.phone}`} className="w-14 h-12 rounded-2xl border-2 border-border bg-white flex items-center justify-center text-warm-gray hover:text-amber text-sm font-medium">📞</a>}
           </div>
         </div>
       </div>
