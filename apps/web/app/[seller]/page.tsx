@@ -107,16 +107,15 @@ export default async function SellerStorefront({ params }: Props) {
   const sym = seller.country === 'india' ? '₹' : '$';
 
   // WhatsApp number logic:
-  // Free tier → customer talks directly to seller's personal number
-  // Growth/Pro → customer goes through Klovi's AI number (Gupshup)
+  // Klovi AI number handles ALL customer messages (bot auto-replies, takes orders, alerts seller)
+  // Seller's personal number is only for Klovi to send them notifications
   const KLOVI_WA_NUMBER = process.env.NEXT_PUBLIC_KLOVI_WA_NUMBER || '918854054503';
   const sellerPersonalWa = (seller.whatsapp_number || seller.phone || '').replace(/\D/g, '');
-  const orderWaNumber = seller.plan === 'free'
-    ? sellerPersonalWa
-    : KLOVI_WA_NUMBER;
-  const hasWa = !!orderWaNumber;
-  // Contact bar WhatsApp → always seller's personal number (direct message, not order flow)
-  const contactWaNumber = sellerPersonalWa;
+  // ALL orders go through Klovi AI number — bot handles conversations
+  const orderWaNumber = KLOVI_WA_NUMBER;
+  const hasWa = true; // Klovi number is always available
+  // Contact bar also uses Klovi number (bot handles everything)
+  const contactWaNumber = KLOVI_WA_NUMBER;
   const contactWaLink = contactWaNumber
     ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw your shop on Klovi (${seller.slug}). 🙏`)}`
     : '';
@@ -218,21 +217,12 @@ export default async function SellerStorefront({ params }: Props) {
           </div>
         </div>
 
-        {/* ═══ CONTACT BAR — always links to seller's personal number ═══ */}
+        {/* ═══ CONTACT BAR — routes to Klovi AI bot ═══ */}
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-white">
-          {contactWaNumber ? (
-            <a href={contactWaLink} target="_blank" rel="noopener noreferrer"
-              className="flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
-              💬 WhatsApp
-            </a>
-          ) : hasPhone ? (
-            <a href={`tel:${seller.phone}`}
-              className="flex-1 h-11 bg-amber text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
-              📞 Call to Order
-            </a>
-          ) : (
-            <span className="flex-1 h-11 bg-gray-100 text-warm-gray rounded-xl text-sm flex items-center justify-center">Contact via Klovi</span>
-          )}
+          <a href={contactWaLink} target="_blank" rel="noopener noreferrer"
+            className="flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
+            💬 WhatsApp
+          </a>
           {hasPhone && (
             <a href={`tel:${seller.phone}`} className="w-11 h-11 bg-cream border border-border rounded-xl flex items-center justify-center text-base">📞</a>
           )}
@@ -345,14 +335,8 @@ export default async function SellerStorefront({ params }: Props) {
         {/* ═══ STICKY BAR ═══ */}
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50">
           <div className="bg-white/95 backdrop-blur-xl border-t border-border px-4 py-2.5 flex gap-2.5">
-            {hasWa ? (
-              <a href={waLink} target="_blank" rel="noopener noreferrer" className={`${hasPhone ? 'flex-1' : 'w-full'} bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all`}>💬 Order on WhatsApp</a>
-            ) : hasPhone ? (
-              <a href={`tel:${seller.phone}`} className="flex-1 bg-amber hover:bg-amber/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber/20 active:scale-[0.98] transition-all">📞 Call to Order</a>
-            ) : (
-              <span className="flex-1 bg-gray-200 text-warm-gray h-12 rounded-2xl text-sm flex items-center justify-center">Contact via Klovi</span>
-            )}
-            {hasWa && hasPhone && <a href={`tel:${seller.phone}`} className="w-14 h-12 rounded-2xl border-2 border-border bg-white flex items-center justify-center text-warm-gray hover:text-amber text-sm font-medium">📞</a>}
+            <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all">💬 Order on WhatsApp</a>
+            {hasPhone && <a href={`tel:${seller.phone}`} className="w-14 h-12 rounded-2xl border-2 border-border bg-white flex items-center justify-center text-warm-gray hover:text-amber text-sm font-medium">📞</a>}
           </div>
         </div>
       </div>
