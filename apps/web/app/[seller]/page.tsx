@@ -150,17 +150,17 @@ export default async function SellerStorefront({ params }: Props) {
     <main className="min-h-screen bg-cream">
       <div className="max-w-[480px] mx-auto">
 
-        {/* ═══ HERO — 320px ═══ */}
-        <div className="relative h-[320px] overflow-hidden">
+        {/* ═══ HERO — compact banner + info card ═══ */}
+        <div className="relative h-[160px] overflow-hidden">
           {heroUrl ? (
             <>
               <img src={heroUrl} alt="" className="w-full h-full object-cover" loading="eager" />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/30 to-black/90" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
             </>
           ) : (
             <>
               <div className={`w-full h-full bg-gradient-to-br ${theme.gradient}`} />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
             </>
           )}
 
@@ -169,26 +169,28 @@ export default async function SellerStorefront({ params }: Props) {
             <Link href="/" className="text-[10px] text-amber bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full font-bold tracking-wider">⚡ KLOVI</Link>
             <ShareButton businessName={seller.business_name} tagline={seller.tagline} />
           </div>
+        </div>
 
-          {/* Bottom content */}
-          <div className="absolute bottom-0 left-0 right-0 p-5 z-10">
-            <div className="flex items-end gap-4">
+        {/* ═══ BUSINESS INFO CARD — overlaps hero ═══ */}
+        <div className="px-4 -mt-12 relative z-10 mb-3">
+          <div className="bg-white rounded-2xl border border-border p-4 shadow-sm">
+            <div className="flex items-center gap-3">
               {seller.avatar_url ? (
-                <img src={seller.avatar_url} alt="" className="w-20 h-20 rounded-full object-cover border-[3px] border-white/80 flex-shrink-0 shadow-lg" />
+                <img src={seller.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-amber/30 flex-shrink-0" />
               ) : (
-                <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl border-[3px] border-white/40 flex-shrink-0 shadow-lg">{theme.emoji}</div>
+                <div className="w-14 h-14 rounded-full bg-amber/10 flex items-center justify-center text-2xl border-2 border-amber/20 flex-shrink-0">{theme.emoji}</div>
               )}
-              <div className="flex-1 min-w-0 pb-1">
-                <h1 className="font-display text-xl font-black text-white leading-tight truncate">{seller.business_name}</h1>
-                <p className="text-white/60 text-xs mt-0.5">{theme.emoji} {seller.category} · 📍 {seller.city}{seller.state ? `, ${seller.state}` : ''}</p>
+              <div className="flex-1 min-w-0">
+                <h1 className="font-display text-lg font-black text-ink leading-tight truncate">{seller.business_name}</h1>
+                <p className="text-warm-gray text-xs mt-0.5">{theme.emoji} {seller.category} · 📍 {seller.city}{seller.state ? `, ${seller.state}` : ''}</p>
                 {seller.average_rating > 0 && (
-                  <p className="text-amber text-xs font-bold mt-0.5">⭐ {Number(seller.average_rating).toFixed(1)} · <span className="text-white/40 font-normal">{seller.total_orders} orders</span></p>
-                )}
-                {seller.tagline && (
-                  <p className="text-white/70 text-[11px] italic mt-1 line-clamp-1">&ldquo;{seller.tagline}&rdquo;</p>
+                  <p className="text-amber text-xs font-bold mt-0.5">⭐ {Number(seller.average_rating).toFixed(1)} · <span className="text-warm-gray font-normal">{seller.total_orders} orders</span></p>
                 )}
               </div>
             </div>
+            {seller.tagline && (
+              <p className="text-warm-gray text-xs italic mt-2 border-t border-border pt-2">&ldquo;{seller.tagline}&rdquo;</p>
+            )}
           </div>
         </div>
 
@@ -285,9 +287,29 @@ export default async function SellerStorefront({ params }: Props) {
         </div>
 
         {/* ═══ FOOTER ═══ */}
-        <div className="text-center px-4 pb-28 pt-2">
-          <p className="text-[10px] text-warm-gray">🔗 kloviapp.com/{slug}</p>
-          <a href="https://kloviapp.com" target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-amber">⚡ Powered by Klovi · Start your free store →</a>
+        <div className="px-4 pb-28 pt-4">
+          <div className="bg-white rounded-2xl border border-border p-5 text-center">
+            <p className="font-display text-sm font-bold text-ink mb-1">{seller.business_name}</p>
+            <p className="text-[11px] text-warm-gray mb-3">{seller.category} · {seller.city}</p>
+            <div className="flex items-center justify-center gap-3 mb-3">
+              {contactWaNumber && (
+                <a href={contactWaLink} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-green/10 rounded-full flex items-center justify-center text-sm">💬</a>
+              )}
+              {hasPhone && (
+                <a href={`tel:${seller.phone}`} className="w-9 h-9 bg-cream rounded-full flex items-center justify-center text-sm border border-border">📞</a>
+              )}
+              {hasInsta && (
+                <a href={`https://instagram.com/${seller.instagram_handle}`} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-purple/10 rounded-full flex items-center justify-center text-sm">📸</a>
+              )}
+              {hasFb && (
+                <a href={`https://facebook.com/${seller.facebook_handle}`} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-blue/10 rounded-full flex items-center justify-center text-sm">📘</a>
+              )}
+            </div>
+            <div className="border-t border-border pt-3">
+              <p className="text-[10px] text-warm-gray mb-1">🔗 kloviapp.com/{slug}</p>
+              <a href="https://kloviapp.com" target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-amber hover:underline">⚡ Powered by Klovi · Start your free store →</a>
+            </div>
+          </div>
         </div>
 
         {/* ═══ STICKY BAR ═══ */}
