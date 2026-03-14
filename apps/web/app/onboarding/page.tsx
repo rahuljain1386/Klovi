@@ -2204,91 +2204,86 @@ export default function OnboardingPage() {
                     ) : (
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f00 0%, #2d1810 40%, #3d2200 100%)' }} />
                     )}
-                    {/* Gradient overlay — light top, heavy bottom */}
+                    {/* Gradient overlay — strong for text readability */}
                     <div className="absolute inset-0" style={{
-                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.35) 35%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.82) 100%)'
+                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 25%, rgba(0,0,0,0.50) 50%, rgba(0,0,0,0.85) 100%)'
                     }} />
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-between p-5">
                       {/* TOP — Badge + Business Info */}
                       <div>
-                        <div className="inline-block bg-amber text-ink text-[9px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-[0.15em] shadow-lg mb-3">
+                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-4 py-2 rounded-full uppercase tracking-[0.15em] shadow-lg mb-3">
                           Now Open
                         </div>
-                        <h2 className="text-white text-[28px] font-bold leading-tight drop-shadow-lg" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
+                        <h2 className="text-white text-[32px] font-bold leading-[1.1]" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 2px 16px rgba(0,0,0,0.7)' }}>
                           {businessName || 'My Business'}
                         </h2>
-                        <p className="text-white/80 text-sm mt-1 drop-shadow" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                        <p className="text-white text-base font-medium mt-2" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
+                          {businessType || businessTypes.join(' & ')}
+                        </p>
+                        <p className="text-white/70 text-xs mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>
                           📍 {city}
                         </p>
                       </div>
 
-                      {/* MIDDLE — Product image grid */}
-                      {products.length > 0 && (
-                        <div className="my-3">
-                          <p className="text-amber text-[9px] font-bold uppercase tracking-[0.15em] mb-2 drop-shadow" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                            What We Offer
-                          </p>
-                          <div className="grid grid-cols-3 gap-2">
-                            {products.slice(0, 6).map((p, i) => (
-                              <div key={i} className="text-center">
-                                <div className="w-full aspect-square rounded-lg overflow-hidden border border-white/20 shadow-md bg-black/20 backdrop-blur-sm">
+                      {/* MIDDLE — Tagline + featured products (max 4) */}
+                      <div className="my-4">
+                        <p className="text-amber text-sm font-bold mb-3 italic" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}>
+                          &ldquo;Homemade with love, delivered to your door&rdquo;
+                        </p>
+                        {products.length > 0 && (
+                          <div className="grid grid-cols-2 gap-2.5">
+                            {products.slice(0, 4).map((p, i) => (
+                              <div key={i} className="rounded-xl overflow-hidden" style={{ boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+                                <div className="aspect-square bg-black/20">
                                   {p.image ? (
                                     <img src={p.image} alt={p.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                                   ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-white/10">
-                                      <span className="text-2xl">{getEmoji(p.category)}</span>
+                                      <span className="text-3xl">{getEmoji(p.category)}</span>
                                     </div>
                                   )}
                                 </div>
-                                <p className="text-white text-[9px] font-medium mt-1 leading-tight drop-shadow truncate" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-                                  {p.name}
-                                </p>
+                                <div className="bg-black/70 backdrop-blur-sm px-2 py-1.5">
+                                  <p className="text-white text-[10px] font-semibold truncate">{p.name}</p>
+                                  {p.price > 0 && <p className="text-amber text-[9px] font-bold">{currencySymbol}{p.price}</p>}
+                                </div>
                               </div>
                             ))}
                           </div>
-                          {products.length > 6 && (
-                            <p className="text-white/50 text-[9px] text-center mt-1.5">+{products.length - 6} more items</p>
-                          )}
-                        </div>
-                      )}
+                        )}
+                        {products.length > 4 && (
+                          <p className="text-white/60 text-xs text-center mt-2 font-medium">+{products.length - 4} more items</p>
+                        )}
+                      </div>
 
-                      {/* BOTTOM — Contact + CTA */}
+                      {/* BOTTOM — Channels + CTA */}
                       <div>
-                        {/* Amber divider */}
-                        <div className="w-10 h-0.5 bg-amber mx-auto mb-3 rounded-full" />
-
-                        {/* Contact info */}
-                        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mb-3">
+                        {/* Channel icons */}
+                        <div className="flex items-center justify-center gap-3 mb-3">
+                          <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+                            💬 WhatsApp
+                          </span>
                           {igHandle && (
-                            <span className="text-white/80 text-[10px] font-medium drop-shadow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                              📸 {igHandle}
+                            <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+                              📸 Instagram
                             </span>
                           )}
                           {fbPage && (
-                            <span className="text-white/80 text-[10px] font-medium drop-shadow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                              📘 {fbPage}
+                            <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
+                              📘 Facebook
                             </span>
                           )}
-                          {(whatsappPath === 'own' && ownWhatsapp) ? (
-                            <span className="text-white/80 text-[10px] font-medium drop-shadow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                              💬 {ownWhatsapp}
-                            </span>
-                          ) : slug ? (
-                            <span className="text-white/80 text-[10px] font-medium drop-shadow" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                              🔗 klovi.com/{slug}
-                            </span>
-                          ) : null}
                         </div>
 
                         {/* CTA */}
-                        <div className="bg-amber text-ink text-center py-3 rounded-xl font-bold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
-                          Order Now →
+                        <div className="bg-amber text-ink text-center py-3.5 rounded-xl font-extrabold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.5)' }}>
+                          🛒 Order Now — kloviapp.com/{slug}
                         </div>
 
-                        <p className="text-white/20 text-[7px] text-center mt-2 uppercase tracking-[0.2em]">
-                          Powered by Klovi
+                        <p className="text-white/30 text-[8px] text-center mt-2 uppercase tracking-[0.2em] font-medium">
+                          ⚡ Powered by Klovi
                         </p>
                       </div>
                     </div>
