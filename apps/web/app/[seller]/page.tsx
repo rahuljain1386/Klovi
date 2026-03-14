@@ -1,4 +1,15 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
+
+// Use service role client for public storefront — bypasses RLS so products always show
+function getPublicClient() {
+  try {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return createServiceRoleClient();
+    }
+  } catch {}
+  // Fallback: this won't work for public pages due to RLS but better than crashing
+  return null;
+}
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -67,7 +78,7 @@ function getBgQuery(seller: { category: string; city?: string }) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { seller: slug } = await params;
-  const supabase = await createClient();
+  const supabase = getPublicClient() || await createClient();
   const { data: s } = await supabase.from('sellers').select('business_name, tagline, description, city, category, launch_card_bg_url, avatar_url').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!s) return { title: 'Not Found - Klovi' };
   const desc = s.tagline || s.description || `${s.category} in ${s.city}`;
@@ -80,12 +91,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SellerStorefront({ params }: Props) {
   const { seller: slug } = await params;
-  const supabase = await createClient();
+  const supabase = getPublicClient() || await createClient();
   const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!seller) notFound();
 
-  // Products: status defaults to 'active' (NOT NULL per DB constraint), so just filter active
-  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
+  // Products: use service role to bypass RLS, fetch all active products
+  const { data: products, error: productsError } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
+  if (productsError) {
+    console.error('[Storefront] Products query error:', productsError.message, '| seller_id:', seller.id);
+  }
+  console.log('[Storefront]', seller.slug, '| products found:', products?.length ?? 0, '| using service role:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
   const { data: reviews } = await supabase.from('reviews').select('*, customers(name)').eq('seller_id', seller.id).eq('status', 'published').order('created_at', { ascending: false }).limit(10);
 
   const sym = seller.country === 'india' ? '₹' : '$';
