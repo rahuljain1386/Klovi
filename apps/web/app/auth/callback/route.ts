@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createServerClient as createSSRClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
 
+const OWNER_EMAILS = ['meetrj1386@gmail.com', 'shefalijain@gmail.com'];
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -67,7 +69,12 @@ export async function GET(request: Request) {
         });
       }
 
-      return NextResponse.redirect(`${origin}${next}`);
+      // Route admin users to /admin
+      const finalRedirect = OWNER_EMAILS.includes(user.email || '')
+        ? '/admin'
+        : next;
+
+      return NextResponse.redirect(`${origin}${finalRedirect}`);
     }
   }
 
