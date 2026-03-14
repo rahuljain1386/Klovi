@@ -165,6 +165,61 @@ export default function AdminSellers() {
     setProducts(products.filter(p => p.id !== id));
   };
 
+  // Toggle seller status (active/paused)
+  const toggleSellerStatus = async (seller: Seller) => {
+    const newStatus = seller.status === 'active' ? 'paused' : 'active';
+    const supabase = createClient();
+    await supabase.from('sellers').update({ status: newStatus }).eq('id', seller.id);
+    setSellers(prev => prev.map(s => s.id === seller.id ? { ...s, status: newStatus } : s));
+  };
+
+  // Reset seller to onboarding (for testing)
+  const resetToOnboarding = async (seller: Seller) => {
+    if (!confirm(`Reset "${seller.business_name}" back to onboarding? Their products will be deleted so they can start fresh.`)) return;
+    const supabase = createClient();
+    // Delete their products, orders, conversations, customers
+    await Promise.all([
+      supabase.from('products').delete().eq('seller_id', seller.id),
+      supabase.from('orders').delete().eq('seller_id', seller.id),
+      supabase.from('conversations').delete().eq('seller_id', seller.id),
+      supabase.from('customers').delete().eq('seller_id', seller.id),
+      supabase.from('posts').delete().eq('seller_id', seller.id),
+    ]);
+    // Reset seller record
+    await supabase.from('sellers').update({
+      status: 'onboarding',
+      total_orders: 0,
+      total_revenue: 0,
+      total_customers: 0,
+      fulfillment_modes: null,
+      pickup_address: null,
+      cod_enabled: false,
+      upi_id: null,
+      whatsapp_number: null,
+      instagram_handle: null,
+      facebook_handle: null,
+    }).eq('id', seller.id);
+    setSellers(prev => prev.map(s => s.id === seller.id ? { ...s, status: 'onboarding', total_orders: 0, total_revenue: 0 } : s));
+  };
+
+  // Delete seller completely
+  const deleteSeller = async (seller: Seller) => {
+    if (!confirm(`DELETE "${seller.business_name}" permanently? This removes the seller AND all their data. This cannot be undone.`)) return;
+    if (!confirm('Are you absolutely sure? Type OK to confirm.')) return;
+    const supabase = createClient();
+    // Delete all related data first
+    await Promise.all([
+      supabase.from('products').delete().eq('seller_id', seller.id),
+      supabase.from('orders').delete().eq('seller_id', seller.id),
+      supabase.from('conversations').delete().eq('seller_id', seller.id),
+      supabase.from('customers').delete().eq('seller_id', seller.id),
+      supabase.from('posts').delete().eq('seller_id', seller.id),
+    ]);
+    // Delete seller record
+    await supabase.from('sellers').delete().eq('id', seller.id);
+    setSellers(prev => prev.filter(s => s.id !== seller.id));
+  };
+
   const statusCounts = sellers.reduce((acc, s) => {
     acc[s.status] = (acc[s.status] || 0) + 1;
     return acc;
@@ -255,6 +310,26 @@ export default function AdminSellers() {
                         >
                           View ↗
                         </Link>
+                        <button
+                          onClick={() => toggleSellerStatus(s)}
+                          className={`text-xs ${s.status === 'active' ? 'text-warm-gray hover:text-rose' : 'text-green-600 hover:underline'}`}
+                        >
+                          {s.status === 'active' ? 'Pause' : s.status === 'paused' ? 'Activate' : ''}
+                        </button>
+                        <button
+                          onClick={() => resetToOnboarding(s)}
+                          className="text-xs text-blue-600 hover:underline"
+                          title="Reset to onboarding (deletes products & data)"
+                        >
+                          Reset
+                        </button>
+                        <button
+                          onClick={() => deleteSeller(s)}
+                          className="text-xs text-rose hover:underline"
+                          title="Delete seller permanently"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
