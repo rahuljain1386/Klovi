@@ -16,25 +16,36 @@ export async function GET() {
     supabase_url_value: (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'NONE').substring(0, 40),
   };
 
-  // 2. Test Supabase connection
+  // 2. Test Supabase connection — list ALL sellers
   try {
     const supabase = createServiceRoleClient();
-    const { data: seller, error } = await supabase
+    const { data: sellers, error } = await supabase
       .from('sellers')
       .select('id, business_name, slug, status, phone, whatsapp_number')
-      .eq('slug', 'renu-stitching-service-mmpsiygg')
-      .single();
+      .limit(10);
 
-    results.seller = error ? { error: error.message } : seller;
+    results.sellers = error ? { error: error.message } : sellers?.map(s => ({
+      id: s.id,
+      name: s.business_name,
+      slug: s.slug,
+      status: s.status,
+      phone: s.phone || 'NOT SET',
+      wa: s.whatsapp_number || 'NOT SET',
+    }));
 
-    // 3. Count products for this seller
-    if (seller) {
-      const { data: products, error: pErr } = await supabase
-        .from('products')
-        .select('id, name, status')
-        .eq('seller_id', seller.id);
-
-      results.products = pErr ? { error: pErr.message } : { count: products?.length, items: products?.map(p => ({ name: p.name, status: p.status })) };
+    // 3. Count products for EACH seller
+    if (sellers && sellers.length > 0) {
+      const productResults: Record<string, unknown> = {};
+      for (const s of sellers) {
+        const { data: products, error: pErr } = await supabase
+          .from('products')
+          .select('id, name, status, price')
+          .eq('seller_id', s.id);
+        productResults[s.slug] = pErr
+          ? { error: pErr.message }
+          : { count: products?.length, items: products?.map(p => ({ name: p.name, status: p.status, price: p.price })) };
+      }
+      results.products = productResults;
     }
   } catch (e: any) {
     results.supabase_error = e.message;
