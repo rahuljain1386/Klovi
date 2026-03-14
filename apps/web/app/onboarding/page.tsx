@@ -856,26 +856,67 @@ export default function OnboardingPage() {
   const launchPostRef = useRef<HTMLDivElement>(null);
   const [postBgImages, setPostBgImages] = useState<string[]>([]);
   const [postBgIdx, setPostBgIdx] = useState(1);
+  const [postTagline, setPostTagline] = useState('');
+  const [postHighlights, setPostHighlights] = useState<string[]>([]);
 
   const generateLaunchPost = async () => {
     setGeneratingPost(true);
     try {
-      // Find best bg query from selected categories
-      const catNames = new Set<string>();
-      businessTypes.forEach(bt => {
-        (BUSINESS_TYPE_TO_CATEGORIES[bt] || []).forEach(c => catNames.add(c));
-      });
-      const firstCat = Array.from(catNames)[0] || '';
-      // Dynamic fallback: use business type keywords + "indian handmade"
-      const bgQuery = CATEGORY_BG_QUERIES[firstCat] || (businessType ? `${businessType} indian handmade` : 'artisan handmade beautiful');
-      const res = await fetch(`/api/photos/search?q=${encodeURIComponent(bgQuery)}&per_page=5&orientation=portrait`);
-      if (res.ok) {
-        const data = await res.json();
+      // Generate AI tagline + highlights in parallel with bg images
+      const productNames = products.map(p => p.name).join(', ');
+      const priceRange = products.filter(p => p.price > 0);
+      const minPrice = priceRange.length > 0 ? Math.min(...priceRange.map(p => p.price)) : 0;
+      const maxPrice = priceRange.length > 0 ? Math.max(...priceRange.map(p => p.price)) : 0;
+
+      const [taglineRes, bgRes] = await Promise.all([
+        fetch('/api/ai/generate-broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: `Write a launch post tagline and 3 highlight bullets for this new business:
+Business: ${businessName}
+Category: ${businessType}
+City: ${city}
+Products (${products.length} items): ${productNames}
+Price range: ${currencySymbol}${minPrice} - ${currencySymbol}${maxPrice}
+
+Return JSON: { "title": "catchy 5-8 word tagline", "message": "highlight1\\nhighlight2\\nhighlight3" }
+The tagline should be punchy and specific to this business type - NOT generic. Examples: "Authentic Rajasthani Namkeen, Made Fresh Daily" or "Handcrafted Jewelry That Tells Your Story" or "Home-Cooked Meals, Office Delivered".
+The 3 highlights should be short selling points like "10 varieties available", "Fresh daily preparation", "Free delivery in Jaipur".`,
+            businessName: businessName,
+            category: businessType,
+            city: city,
+            country: currency === 'INR' ? 'india' : 'usa',
+          }),
+        }).catch(() => null),
+        // Background images
+        (() => {
+          const catNames = new Set<string>();
+          businessTypes.forEach(bt => {
+            (BUSINESS_TYPE_TO_CATEGORIES[bt] || []).forEach(c => catNames.add(c));
+          });
+          const firstCat = Array.from(catNames)[0] || '';
+          const bgQuery = CATEGORY_BG_QUERIES[firstCat] || (businessType ? `${businessType} indian handmade` : 'artisan handmade beautiful');
+          return fetch(`/api/photos/search?q=${encodeURIComponent(bgQuery)}&per_page=5&orientation=portrait`);
+        })().catch(() => null),
+      ]);
+
+      // Process tagline
+      if (taglineRes?.ok) {
+        try {
+          const tagData = await taglineRes.json();
+          if (tagData.title) setPostTagline(tagData.title);
+          if (tagData.message) setPostHighlights(tagData.message.split('\n').filter((s: string) => s.trim()));
+        } catch {}
+      }
+
+      // Process bg images
+      if (bgRes?.ok) {
+        const data = await bgRes.json();
         const urls = (data.photos || []).map((p: { src: string }) => p.src);
         setPostBgImages(urls);
         const idx = urls.length > 1 ? 1 : 0;
         setPostBgIdx(idx);
-        // Save best background to seller profile
         if (urls[idx]) {
           const sb = createClient();
           sb.from('sellers').update({ launch_card_bg_url: urls[idx] }).eq('id', sellerId).then(() => {});
@@ -890,7 +931,6 @@ export default function OnboardingPage() {
     if (postBgImages.length === 0) return;
     const nextIdx = (postBgIdx + 1) % postBgImages.length;
     setPostBgIdx(nextIdx);
-    // Save new background to seller profile
     if (postBgImages[nextIdx]) {
       const sb = createClient();
       sb.from('sellers').update({ launch_card_bg_url: postBgImages[nextIdx] }).eq('id', sellerId).then(() => {});
@@ -898,6 +938,12 @@ export default function OnboardingPage() {
   };
 
   const postBgImage = postBgImages[postBgIdx] || null;
+
+  // Find the best hero product (one with an image)
+  const heroProduct = products.find(p => p.image) || products[0] || null;
+  const priceRange = products.filter(p => p.price > 0);
+  const minProductPrice = priceRange.length > 0 ? Math.min(...priceRange.map(p => p.price)) : 0;
+  const maxProductPrice = priceRange.length > 0 ? Math.max(...priceRange.map(p => p.price)) : 0;
 
   const downloadLaunchPost = async () => {
     if (!launchPostRef.current) return;
@@ -2197,88 +2243,101 @@ export default function OnboardingPage() {
                 <>
                   <div ref={launchPostRef}
                     className="mx-auto max-w-sm rounded-2xl overflow-hidden shadow-2xl mb-3 relative"
-                    style={{ aspectRatio: '3/4' }}>
-                    {/* Clean gradient background — no busy photos */}
+                    style={{ aspectRatio: '4/5' }}>
+
+                    {/* HERO IMAGE — one big product photo, the star */}
+                    {heroProduct?.image ? (
+                      <img src={heroProduct.image} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" />
+                    ) : postBgImage ? (
+                      <img src={postBgImage} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" />
+                    ) : (
+                      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a00 0%, #3d2200 50%, #1a1a2e 100%)' }} />
+                    )}
+
+                    {/* Gradient overlay — dark at top and bottom for text, clear in middle for hero image */}
                     <div className="absolute inset-0" style={{
-                      background: postBgImage
-                        ? undefined
-                        : 'linear-gradient(160deg, #1a0a00 0%, #2d1200 30%, #1a1a2e 70%, #0d0d1a 100%)'
-                    }}>
-                      {postBgImage && (
-                        <img src={postBgImage} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" style={{ filter: 'brightness(0.25) blur(2px)' }} />
-                      )}
-                    </div>
+                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 35%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.70) 70%, rgba(0,0,0,0.92) 100%)'
+                    }} />
 
                     {/* Content */}
-                    <div className="relative z-10 h-full flex flex-col p-5">
-                      {/* TOP — Badge + Business Name */}
-                      <div className="text-center mb-3">
-                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-5 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg mb-3">
+                    <div className="relative z-10 h-full flex flex-col justify-between p-5">
+
+                      {/* TOP — Badge + Business Name + Tagline */}
+                      <div>
+                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-4 py-1.5 rounded-full uppercase tracking-[0.15em] shadow-lg mb-2">
                           Now Open
                         </div>
-                        <h2 className="text-white text-[28px] font-bold leading-[1.1]" style={{ fontFamily: 'Playfair Display, serif' }}>
+                        <h2 className="text-white text-[30px] font-bold leading-[1.05]" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}>
                           {businessName || 'My Business'}
                         </h2>
-                        <p className="text-amber/80 text-sm font-semibold mt-1">
-                          {businessType || businessTypes.join(' & ')} · 📍 {city}
+                        {postTagline && (
+                          <p className="text-amber text-[13px] font-bold mt-1.5 leading-snug" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}>
+                            {postTagline}
+                          </p>
+                        )}
+                        <p className="text-white/70 text-[11px] font-medium mt-1" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
+                          📍 {city}
                         </p>
                       </div>
 
-                      {/* PRODUCTS — the hero section, clean white cards */}
-                      {products.length > 0 && (
-                        <div className="flex-1 flex flex-col justify-center">
-                          <div className={`grid ${products.length === 1 ? 'grid-cols-1' : products.length <= 3 ? 'grid-cols-2' : 'grid-cols-2'} gap-2`}>
-                            {products.slice(0, 4).map((p, i) => (
-                              <div key={i} className="bg-white rounded-xl overflow-hidden shadow-lg">
-                                <div className="aspect-[4/3] bg-gray-100">
-                                  {p.image ? (
-                                    <img src={p.image} alt={p.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-amber/5">
-                                      <span className="text-3xl">{getEmoji(p.category)}</span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="px-2.5 py-2">
-                                  <p className="text-gray-900 text-[11px] font-bold truncate">{p.name}</p>
-                                  {p.price > 0 && <p className="text-amber text-[10px] font-extrabold">{currencySymbol}{p.price}</p>}
-                                </div>
+                      {/* BOTTOM — Product strip + highlights + CTA */}
+                      <div>
+                        {/* Mini product strip — shows variety, not a catalog */}
+                        {products.length > 1 && (
+                          <div className="flex gap-1.5 mb-3 overflow-hidden">
+                            {products.filter(p => p.image).slice(0, 6).map((p, i) => (
+                              <div key={i} className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/30 shadow-lg">
+                                <img src={p.image!} alt={p.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                               </div>
                             ))}
+                            {products.length > 6 && (
+                              <div className="w-12 h-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border-2 border-white/30">
+                                <span className="text-white text-[10px] font-bold">+{products.length - 6}</span>
+                              </div>
+                            )}
                           </div>
-                          {products.length > 4 && (
-                            <p className="text-white/50 text-[10px] text-center mt-2 font-medium">+{products.length - 4} more items available</p>
+                        )}
+
+                        {/* Highlights — what makes this business special */}
+                        <div className="mb-3">
+                          {postHighlights.length > 0 ? (
+                            <div className="space-y-1">
+                              {postHighlights.slice(0, 3).map((h, i) => (
+                                <p key={i} className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+                                  ✓ {h}
+                                </p>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+                                ✓ {products.length} {products.length === 1 ? 'item' : 'items'} available
+                              </p>
+                              {minProductPrice > 0 && (
+                                <p className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
+                                  ✓ Starting at {currencySymbol}{minProductPrice}
+                                </p>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
 
-                      {/* BOTTOM — Channels + CTA + URL */}
-                      <div className="mt-3">
                         {/* Channel badges */}
-                        <div className="flex items-center justify-center gap-2 mb-2.5">
-                          <span className="bg-green-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
-                            WhatsApp
-                          </span>
+                        <div className="flex items-center gap-1.5 mb-2.5">
+                          <span className="bg-green-600 text-white text-[8px] font-bold px-2 py-1 rounded-full shadow">WhatsApp</span>
                           {igHandle && (
-                            <span className="bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
-                              Instagram
-                            </span>
+                            <span className="text-white text-[8px] font-bold px-2 py-1 rounded-full shadow" style={{ background: 'linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045)' }}>Instagram</span>
                           )}
                           {fbPage && (
-                            <span className="bg-blue-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
-                              Facebook
-                            </span>
+                            <span className="bg-blue-600 text-white text-[8px] font-bold px-2 py-1 rounded-full shadow">Facebook</span>
                           )}
                         </div>
 
-                        {/* CTA button with URL */}
+                        {/* CTA */}
                         <div className="bg-amber text-ink text-center py-3 rounded-xl font-extrabold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
-                          Order Now
+                          Order Now — kloviapp.com/{slug}
                         </div>
-                        <p className="text-amber/90 text-[11px] text-center mt-1.5 font-bold tracking-wide">
-                          kloviapp.com/{slug}
-                        </p>
-                        <p className="text-white/20 text-[7px] text-center mt-1.5 uppercase tracking-[0.2em]">
+                        <p className="text-white/25 text-[7px] text-center mt-2 uppercase tracking-[0.2em]">
                           Powered by Klovi
                         </p>
                       </div>
