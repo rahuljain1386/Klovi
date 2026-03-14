@@ -823,11 +823,13 @@ export default function OnboardingPage() {
   const saveChannels = async () => {
     setSaving(true);
     const supabase = createClient();
+    const cleanedPhone = ownWhatsapp.trim().replace(/[\s()-]/g, '');
     const updates: Record<string, unknown> = {
       status: 'active',
       cod_enabled: selectedPayments.includes('cash'),
-      whatsapp_path: whatsappPath === 'klovi' ? 'shared' : 'own_number',
-      whatsapp_number: whatsappPath === 'own' ? ownWhatsapp : null,
+      whatsapp_path: 'own_number',
+      whatsapp_number: cleanedPhone || null,
+      phone: cleanedPhone || null,
       instagram_connected: !!igHandle,
       facebook_connected: !!fbPage,
       instagram_handle: igHandle || null,
@@ -2122,57 +2124,32 @@ Return JSON: { "title": "the tagline", "message": "" }`,
           {/* ── SUB-STEP 2: Channels (Gupshup handles all DMs) ── */}
           {channelStep === 2 && (
             <div className="bg-white rounded-2xl p-6 border border-border">
-              <h1 className="font-display text-2xl text-ink mb-1">Where do customers reach you?</h1>
-              <p className="text-warm-gray text-sm mb-2">Klovi&apos;s AI handles all DMs &amp; replies for you</p>
-              <div className="bg-green/5 border border-green/20 rounded-lg px-3 py-2 mb-5">
-                <p className="text-[10px] text-green font-semibold">All messages land in your Klovi inbox — WhatsApp, Instagram &amp; Facebook DMs, comment replies, auto-replies</p>
-              </div>
+              <h1 className="font-display text-2xl text-ink mb-1">How do customers reach you?</h1>
+              <p className="text-warm-gray text-sm mb-5">This shows on your shop page so customers can contact you</p>
 
-              {/* WhatsApp */}
-              <div className="border border-border rounded-xl p-4 mb-4">
+              {/* WhatsApp — ALWAYS collect number */}
+              <div className="border-2 border-green/30 bg-green/5 rounded-xl p-4 mb-4">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl">🟢</span>
                   <div>
-                    <p className="font-semibold text-ink text-sm">WhatsApp</p>
-                    <p className="text-[10px] text-warm-gray">Customers message you, AI replies instantly</p>
+                    <p className="font-semibold text-ink text-sm">Your WhatsApp number</p>
+                    <p className="text-[10px] text-warm-gray">Customers will message you here for orders</p>
                   </div>
                 </div>
-                <div className="space-y-2.5">
-                  <label className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                    whatsappPath === 'klovi' ? 'bg-amber/5 border-2 border-amber' : 'bg-cream border-2 border-transparent'
-                  }`}>
-                    <input type="radio" name="wa" checked={whatsappPath === 'klovi'} onChange={() => setWhatsappPath('klovi')}
-                      className="mt-1 accent-amber" />
-                    <div>
-                      <p className="text-sm font-medium text-ink">Give me a Klovi number</p>
-                      <p className="text-[10px] text-warm-gray">Ready in 2 mins — dedicated business number</p>
-                    </div>
-                  </label>
-                  <label className={`flex items-start gap-3 p-3 rounded-xl cursor-pointer transition-all ${
-                    whatsappPath === 'own' ? 'bg-amber/5 border-2 border-amber' : 'bg-cream border-2 border-transparent'
-                  }`}>
-                    <input type="radio" name="wa" checked={whatsappPath === 'own'} onChange={() => setWhatsappPath('own')}
-                      className="mt-1 accent-amber" />
-                    <div>
-                      <p className="text-sm font-medium text-ink">I have a spare SIM</p>
-                      <p className="text-[10px] text-warm-gray">Use your own number</p>
-                    </div>
-                  </label>
-                  {whatsappPath === 'own' && (
-                    <input type="tel" value={ownWhatsapp} onChange={(e) => setOwnWhatsapp(e.target.value)}
-                      className="w-full px-3 py-3 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-amber ml-7"
-                      placeholder="+1 or +91 number" />
-                  )}
-                </div>
+                <input type="tel" value={ownWhatsapp} onChange={(e) => setOwnWhatsapp(e.target.value)}
+                  className="w-full px-3 py-3 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-green bg-white"
+                  placeholder={currency === 'INR' ? '+91 98765 43210' : '+1 (555) 123-4567'} />
+                {!ownWhatsapp.trim() && (
+                  <p className="text-[10px] text-rose mt-1.5 font-medium">Required — this is how customers will reach you</p>
+                )}
               </div>
 
-              {/* Instagram */}
+              {/* Instagram — optional */}
               <div className="border border-border rounded-xl p-4 mb-4">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-2xl">📸</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-ink text-sm">Instagram</p>
-                    <p className="text-[10px] text-warm-gray">AI auto-replies to DMs &amp; comments</p>
+                    <p className="font-semibold text-ink text-sm">Instagram <span className="text-warm-gray font-normal">(optional)</span></p>
                   </div>
                   {igHandle && <span className="text-green text-[10px] font-bold">Ready</span>}
                 </div>
@@ -2181,13 +2158,12 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                   placeholder="@yourbusiness" />
               </div>
 
-              {/* Facebook */}
+              {/* Facebook — optional */}
               <div className="border border-border rounded-xl p-4 mb-5">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="text-2xl">📘</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-ink text-sm">Facebook</p>
-                    <p className="text-[10px] text-warm-gray">AI auto-replies to Messenger &amp; comments</p>
+                    <p className="font-semibold text-ink text-sm">Facebook <span className="text-warm-gray font-normal">(optional)</span></p>
                   </div>
                   {fbPage && <span className="text-green text-[10px] font-bold">Ready</span>}
                 </div>
@@ -2196,9 +2172,7 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                   placeholder="Your Facebook page name" />
               </div>
 
-              <p className="text-[10px] text-warm-gray text-center mb-4">You still post manually — Klovi handles all incoming messages &amp; replies</p>
-
-              <button onClick={() => setChannelStep(3)}
+              <button onClick={() => { if (!ownWhatsapp.trim()) { alert('Please add your WhatsApp number — customers need it to reach you'); return; } setChannelStep(3); }}
                 className="w-full py-4 bg-amber text-white rounded-2xl font-semibold text-lg hover:bg-amber/90 transition-all min-h-[52px]">
                 Next
               </button>
