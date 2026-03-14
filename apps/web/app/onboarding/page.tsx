@@ -422,10 +422,12 @@ export default function OnboardingPage() {
     // Search both pre-built AND AI-generated products
     const allCatalog = [...dbProducts, ...aiCatalogProducts];
     const selected = allCatalog.filter(p => catalogSelected.has(p.name));
+    // Catalog prices are in INR. Convert to USD if needed (~1 INR = $0.012)
+    const convertPrice = (inrPrice: number) => currency === 'USD' ? Math.round(inrPrice * 0.012 * 100) / 100 : inrPrice;
     const newProds: Product[] = selected.map(cp => ({
       name: cp.name,
       description: cp.description,
-      price: cp.priceMin,
+      price: convertPrice(cp.priceMin),
       category: cp.category,
       highlight: cp.highlights,
       variants: cp.variants.map(v => ({ label: v, price: 0, qty: null })),
@@ -701,7 +703,12 @@ export default function OnboardingPage() {
     else if (text.match(/astro|heal|well|spirit/)) category = 'wellness';
     else if (text.match(/plant|garden/)) category = 'plants';
     const fullDesc = customType ? [...businessTypes, customType].join(', ') : businessTypes.join(', ');
-    await supabase.from('sellers').update({ language, category, description: fullDesc, city: city.trim() }).eq('id', sellerId);
+    // Detect country from city text or currency selection
+    const cityLower = city.toLowerCase();
+    const isIndia = currency === 'INR' || cityLower.includes('india') || /jaipur|mumbai|delhi|bangalore|chennai|kolkata|hyderabad|pune|ahmedabad|surat|lucknow|chandigarh|indore|bhopal|noida|gurgaon|gurugram|kochi|jaipur|patna|nagpur|coimbatore|vizag|visakhapatnam|mysore|trivandrum|thiruvananthapuram|rajkot|vadodara|varanasi|agra|jodhpur|udaipur|dehradun|amritsar|ludhiana|kanpur|nashik|aurangabad|thane|goa|pondicherry|puducherry|mangalore|hubli|belgaum|guwahati|ranchi|bhubaneswar/.test(cityLower);
+    const country = isIndia ? 'india' : 'usa';
+    if (isIndia && currency !== 'INR') setCurrency('INR');
+    await supabase.from('sellers').update({ language, category, description: fullDesc, city: city.trim(), country }).eq('id', sellerId);
     setSaving(false); setStep('products');
   };
 
@@ -709,14 +716,13 @@ export default function OnboardingPage() {
     if (products.length === 0) return;
     setSaving(true);
     const supabase = createClient();
-    const { data: seller } = await supabase.from('sellers').select('country').eq('id', sellerId).single();
-    const currency = seller?.country === 'india' ? 'INR' : 'USD';
     const inserts = products.map((p, i) => ({
       seller_id: sellerId, name: p.name, description: p.description || null,
       price: p.price, category: p.category || null, currency, sort_order: i,
       variants: p.variants.length > 0 ? JSON.stringify(p.variants) : null,
       stock_quantity: p.stock, track_stock: p.stock !== null,
       images: p.image ? [p.image] : null,
+      status: 'active', is_available: true,
     }));
     await supabase.from('products').insert(inserts);
     const modes = fulfillmentMode === 'both' ? ['pickup', 'delivery'] : [fulfillmentMode];

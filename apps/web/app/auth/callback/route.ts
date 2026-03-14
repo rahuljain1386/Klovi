@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServerClient as createSSRClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -48,14 +48,19 @@ export async function GET(request: Request) {
           .replace(/-+/g, '-')
           .trim();
 
+        // Try to detect country from request headers (Vercel/Netlify set x-country)
+        const hdrs = await headers();
+        const geoCountry = hdrs.get('x-country') || hdrs.get('x-vercel-ip-country') || '';
+        const detectedCountry = geoCountry.toLowerCase() === 'in' ? 'india' : 'usa';
+
         await supabase.from('sellers').insert({
           user_id: user.id,
           business_name: name,
           slug: slug + '-' + Date.now().toString(36),
           status: 'onboarding',
           plan: 'free',
-          country: 'usa',
-          language: 'en',
+          country: detectedCountry,
+          language: detectedCountry === 'india' ? 'hi' : 'en',
           city: '',
           phone: '',
         });
