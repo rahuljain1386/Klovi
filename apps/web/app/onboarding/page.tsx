@@ -2353,13 +2353,23 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                       className="flex-1 py-3 bg-cream text-ink rounded-xl font-semibold text-sm hover:bg-cream/70 transition-colors border border-border">
                       {t('channels.download', language)}
                     </button>
-                    <button onClick={() => {
-                      const shareText = `${businessName} is now open! 🎉\n\nOrder here: ${window.location.origin}/${slug}\n\nOr message us on WhatsApp to order!`;
-                      if (navigator.share) {
-                        navigator.share({ title: `${businessName} is open!`, text: shareText, url: `${window.location.origin}/${slug}` });
-                      } else {
-                        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                    <button onClick={async () => {
+                      const shareCaption = `${businessName} is now open! 🎉\n${launchOffer ? `\n🎁 ${launchOffer}\n` : ''}\n${products.length} items available${minProductPrice > 0 ? ` · Starting ${currencySymbol}${minProductPrice}` : ''}\n\n👉 Order here: ${window.location.origin}/${slug}\n\nOr message us directly on WhatsApp!`;
+                      // Try to share image + text on mobile
+                      if (launchPostRef.current && navigator.canShare) {
+                        try {
+                          const html2canvas = (await import('html2canvas')).default;
+                          const canvas = await html2canvas(launchPostRef.current, { scale: 2, backgroundColor: null, useCORS: true });
+                          const blob = await new Promise<Blob>((resolve) => canvas.toBlob(b => resolve(b!), 'image/png'));
+                          const file = new File([blob], `${(businessName || 'launch').replace(/\s+/g, '-').toLowerCase()}.png`, { type: 'image/png' });
+                          if (navigator.canShare({ files: [file] })) {
+                            await navigator.share({ files: [file], text: shareCaption });
+                            return;
+                          }
+                        } catch { /* fallback below */ }
                       }
+                      // Fallback: open WhatsApp with text (image already downloaded)
+                      window.open(`https://wa.me/?text=${encodeURIComponent(shareCaption)}`, '_blank');
                     }}
                       className="flex-1 py-3 bg-green text-white rounded-xl font-semibold text-sm hover:bg-green/90 transition-colors">
                       Share on WhatsApp
