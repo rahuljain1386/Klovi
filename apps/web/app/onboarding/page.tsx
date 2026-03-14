@@ -708,7 +708,15 @@ export default function OnboardingPage() {
     const isIndia = currency === 'INR' || cityLower.includes('india') || /jaipur|mumbai|delhi|bangalore|chennai|kolkata|hyderabad|pune|ahmedabad|surat|lucknow|chandigarh|indore|bhopal|noida|gurgaon|gurugram|kochi|jaipur|patna|nagpur|coimbatore|vizag|visakhapatnam|mysore|trivandrum|thiruvananthapuram|rajkot|vadodara|varanasi|agra|jodhpur|udaipur|dehradun|amritsar|ludhiana|kanpur|nashik|aurangabad|thane|goa|pondicherry|puducherry|mangalore|hubli|belgaum|guwahati|ranchi|bhubaneswar/.test(cityLower);
     const country = isIndia ? 'india' : 'usa';
     if (isIndia && currency !== 'INR') setCurrency('INR');
-    await supabase.from('sellers').update({ language, category, description: fullDesc, city: city.trim(), country }).eq('id', sellerId);
+    const setupUpdates: Record<string, unknown> = { language, category, description: fullDesc, city: city.trim(), country };
+    if (businessName.trim()) {
+      setupUpdates.business_name = businessName.trim();
+      // Update slug to match business name
+      const newSlug = businessName.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-') + '-' + Date.now().toString(36);
+      setupUpdates.slug = newSlug;
+      setSlug(newSlug);
+    }
+    await supabase.from('sellers').update(setupUpdates).eq('id', sellerId);
     setSaving(false); setStep('products');
   };
 
@@ -856,19 +864,21 @@ export default function OnboardingPage() {
   const launchPostRef = useRef<HTMLDivElement>(null);
   const [postTagline, setPostTagline] = useState('');
   const [heroIdx, setHeroIdx] = useState(0);
+  const [launchOffer, setLaunchOffer] = useState('');
 
   const generateLaunchPost = async () => {
     setGeneratingPost(true);
     try {
       // Generate AI tagline only — no fake highlights
       const productNames = products.map(p => p.name).join(', ');
+      const offerContext = launchOffer ? `\nLaunch offer: ${launchOffer}` : '';
       const taglineRes = await fetch('/api/ai/generate-broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: `Write ONLY a short catchy tagline (5-8 words max) for this business launch. NO highlights, NO bullet points.
 Business: ${businessName}, Category: ${businessType}, City: ${city}
-Products: ${productNames}
+Products: ${productNames}${offerContext}
 Examples of good taglines: "Taste Rajasthan in Every Bite", "Handcrafted With Love, Worn With Pride", "Your Kitchen Away From Kitchen"
 Return JSON: { "title": "the tagline", "message": "" }`,
           businessName, category: businessType, city,
@@ -881,6 +891,19 @@ Return JSON: { "title": "the tagline", "message": "" }`,
           const tagData = await taglineRes.json();
           if (tagData.title) setPostTagline(tagData.title);
         } catch {}
+      }
+      // Fallback tagline if AI failed
+      if (!postTagline) {
+        const fallbacks: Record<string, string> = {
+          food: `Fresh ${businessType} from ${city}`,
+          stitching: `Custom stitching, perfect fit`,
+          jewelry: `Handcrafted jewelry with love`,
+          beauty: `Beauty services at your doorstep`,
+          coaching: `Expert guidance, real results`,
+          wellness: `Wellness for mind & body`,
+        };
+        const cat = Object.keys(fallbacks).find(k => (businessType || '').toLowerCase().includes(k));
+        setPostTagline(fallbacks[cat || ''] || `Quality ${businessType} in ${city}`);
       }
     } catch {}
     setLaunchPost('ready');
@@ -1096,6 +1119,14 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                     {l.l}
                   </button>
                 ))}
+              </div>
+            </div>
+            <div className="mb-5">
+              <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">Your business name</label>
+              <div className="flex gap-2">
+                <input type="text" value={businessName} onChange={(e) => setBusinessName(e.target.value)}
+                  className="flex-1 px-3 py-2.5 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-amber" placeholder="e.g., Renu's Kitchen, Priya Jewels..." />
+                <MicButton onTranscript={(t) => setBusinessName(t)} lang={language} small />
               </div>
             </div>
             <div className="mb-5">
@@ -2184,11 +2215,29 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                 {launchPost ? 'Download & share on WhatsApp, Instagram, Facebook' : 'We\'ll create a beautiful post with your products & contact info'}
               </p>
 
+              {/* Launch offer input — before generating */}
+              {!launchPost && !generatingPost && (
+                <div className="text-left mb-5">
+                  <label className="text-xs font-semibold text-warm-gray uppercase tracking-wider mb-2 block">Any launch offer? (optional)</label>
+                  <input type="text" value={launchOffer} onChange={(e) => setLaunchOffer(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-border rounded-xl text-ink text-sm focus:outline-none focus:border-amber mb-2"
+                    placeholder="e.g., 10% off first order, Free delivery today..." />
+                  <div className="flex gap-1.5 flex-wrap">
+                    {['10% off first order', 'Free sample with order', 'Buy 2 Get 1 Free', 'Free delivery today'].map(offer => (
+                      <button key={offer} onClick={() => setLaunchOffer(offer)}
+                        className={`text-[10px] px-2.5 py-1.5 rounded-full border transition-colors ${launchOffer === offer ? 'bg-amber/15 border-amber text-ink font-semibold' : 'bg-cream border-border text-warm-gray hover:border-amber'}`}>
+                        {offer}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Launch post — full bleed poster */}
               {generatingPost && !launchPost && (
                 <div className="flex flex-col items-center justify-center gap-3 mb-5 py-12">
                   <div className="w-8 h-8 border-[3px] border-amber border-t-transparent rounded-full animate-spin" />
-                  <p className="text-warm-gray text-sm">Finding the perfect background...</p>
+                  <p className="text-warm-gray text-sm">Creating your launch post...</p>
                 </div>
               )}
 
@@ -2231,8 +2280,15 @@ Return JSON: { "title": "the tagline", "message": "" }`,
                         </p>
                       </div>
 
-                      {/* BOTTOM — Product thumbnails + facts + CTA */}
+                      {/* BOTTOM — Offer + Product thumbnails + CTA */}
                       <div>
+                        {/* Launch offer banner */}
+                        {launchOffer && (
+                          <div className="bg-white text-ink text-center py-2 px-3 rounded-lg mb-3 shadow-lg">
+                            <p className="text-[12px] font-extrabold uppercase">🎉 {launchOffer}</p>
+                          </div>
+                        )}
+
                         {/* Product thumbnail strip */}
                         {products.length > 1 && (
                           <div className="flex gap-1.5 mb-3 justify-center">
