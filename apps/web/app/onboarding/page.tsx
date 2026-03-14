@@ -523,7 +523,7 @@ export default function OnboardingPage() {
     if (!dName.trim()) return;
     const product: Product = {
       name: dName.trim(), description: dDesc.trim(),
-      price: dVariants.length > 0 ? 0 : parseFloat(dPrice) || 0,
+      price: dVariants.length > 0 ? (dVariants.some(v => v.price > 0) ? 0 : parseFloat(dPrice) || 0) : parseFloat(dPrice) || 0,
       category: dCategory || categories[0] || '', highlight: '',
       variants: dVariants.filter(v => v.label.trim()),
       stock: dQty ? parseInt(dQty) : null, image: dImage,
@@ -1010,7 +1010,11 @@ export default function OnboardingPage() {
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-bold text-ink text-sm truncate">{p.name}</h3>
             <span className="font-bold text-amber text-sm flex-shrink-0">
-              {p.variants.length > 0 ? `${currencySymbol}${Math.min(...p.variants.map(v => v.price))}+` : `${currencySymbol}${p.price}`}
+              {p.variants.length > 0
+                ? (p.variants.some(v => v.price > 0)
+                  ? `${currencySymbol}${Math.min(...p.variants.filter(v => v.price > 0).map(v => v.price))}+`
+                  : (p.price > 0 ? `${currencySymbol}${p.price}` : 'Variants'))
+                : `${currencySymbol}${p.price}`}
             </span>
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
@@ -2362,7 +2366,9 @@ export default function OnboardingPage() {
                       <p className="text-sm font-semibold text-ink truncate">{p.name}</p>
                       <p className="text-xs text-warm-gray mt-0.5">
                         {p.variants.length > 0
-                          ? `${currencySymbol}${Math.min(...p.variants.map(v => v.price))}+`
+                          ? (p.variants.some(v => v.price > 0)
+                            ? `${currencySymbol}${Math.min(...p.variants.filter(v => v.price > 0).map(v => v.price))}+`
+                            : (p.price > 0 ? `${currencySymbol}${p.price}` : 'Variants'))
                           : `${currencySymbol}${p.price}`}
                       </p>
                     </div>

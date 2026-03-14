@@ -5,6 +5,15 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
 
+type ShopProduct = {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  images: string[] | null;
+  is_available: boolean;
+};
+
 type ShopStatus = {
   sellerName: string;
   slug: string;
@@ -18,12 +27,14 @@ type ShopStatus = {
   currency: string;
   hasWhatsApp: boolean;
   hasDelivery: boolean;
+  hasPayment: boolean;
   language: string;
 };
 
 export default function DashboardHome() {
   const [shop, setShop] = useState<ShopStatus | null>(null);
   const [copied, setCopied] = useState(false);
+  const [recentProducts, setRecentProducts] = useState<ShopProduct[]>([]);
 
   useEffect(() => {
     loadShopStatus();
@@ -43,14 +54,16 @@ export default function DashboardHome() {
     if (!seller) return;
 
     // Parallel queries
-    const [productsRes, pendingRes, unreadRes, todayOrdersRes] = await Promise.all([
+    const [productsRes, pendingRes, unreadRes, todayOrdersRes, recentProdsRes] = await Promise.all([
       supabase.from('products').select('id, is_available', { count: 'exact' }).eq('seller_id', seller.id),
       supabase.from('orders').select('id', { count: 'exact' }).eq('seller_id', seller.id).in('status', ['placed', 'confirmed']),
       supabase.from('conversations').select('id', { count: 'exact' }).eq('seller_id', seller.id).gt('unread_count', 0),
       supabase.from('orders').select('total').eq('seller_id', seller.id).gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      supabase.from('products').select('id, name, price, currency, images, is_available').eq('seller_id', seller.id).order('sort_order').limit(6),
     ]);
 
     const products = productsRes.data || [];
+    setRecentProducts((recentProdsRes.data as ShopProduct[]) || []);
     setShop({
       sellerName: seller.business_name,
       slug: seller.slug,
@@ -63,7 +76,8 @@ export default function DashboardHome() {
       todayRevenue: todayOrdersRes.data?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0,
       currency: seller.country === 'india' ? 'INR' : 'USD',
       hasWhatsApp: !!(seller.whatsapp_number || seller.phone),
-      hasDelivery: !!seller.fulfillment_type,
+      hasDelivery: !!(seller.fulfillment_modes?.length > 0),
+      hasPayment: !!(seller.cod_enabled || seller.upi_id || seller.stripe_account_id),
       language: seller.language || 'en',
     });
   };
@@ -204,6 +218,12 @@ export default function DashboardHome() {
               href="/dashboard/settings"
             />
             <ChecklistItem
+              done={shop.hasPayment}
+              label="Set up payment"
+              subtitle={shop.hasPayment ? 'Payment configured' : 'Cash, UPI, or online payment'}
+              href="/dashboard/settings"
+            />
+            <ChecklistItem
               done={false}
               label={t('dash.shareLink', shop.language)}
               subtitle={t('dash.shareSubtitle', shop.language)}
@@ -213,23 +233,70 @@ export default function DashboardHome() {
         </div>
       )}
 
+      {/* Your Products preview */}
+      {recentProducts.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-ink">{t('dash.products', shop.language)}</h2>
+            <Link href="/dashboard/products" className="text-sm text-amber font-medium hover:underline">
+              View all &rarr;
+            </Link>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {recentProducts.map((product) => {
+              const sym = product.currency === 'INR' ? '\u20B9' : '$';
+              return (
+                <Link key={product.id} href="/dashboard/products" className="bg-white rounded-xl border border-[#e7e0d4] overflow-hidden hover:border-amber transition-colors">
+                  <div className="h-20 bg-cream flex items-center justify-center">
+                    {product.images?.[0] ? (
+                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">📦</span>
+                    )}
+                  </div>
+                  <div className="p-2">
+                    <p className="text-xs font-medium text-ink truncate">{product.name}</p>
+                    {product.price > 0 && <p className="text-[10px] text-green">{sym}{product.price}</p>}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Quick actions */}
       <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.quickActions', shop.language)}</h2>
       <div className="grid grid-cols-2 gap-3">
         {[
           { key: 'dash.addProduct', href: '/dashboard/products', icon: '➕' },
-          { key: 'dash.broadcast', href: '/dashboard/broadcasts', icon: '📢' },
           { key: 'dash.createPost', href: '/dashboard/posts', icon: '🎨' },
+          { key: 'dash.broadcast', href: '/dashboard/broadcasts', icon: '📢' },
+          { key: 'dash.customers', href: '/dashboard/customers', icon: '👥' },
           { key: 'dash.settings', href: '/dashboard/settings', icon: '⚙️' },
+          { label: 'View Shop', href: '', icon: '👁️', isShopLink: true },
         ].map((action) => (
-          <Link
-            key={action.key}
-            href={action.href}
-            className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
-          >
-            <span className="text-xl">{action.icon}</span>
-            <p className="text-sm font-medium text-ink mt-1">{t(action.key, shop.language)}</p>
-          </Link>
+          action.isShopLink ? (
+            <a
+              key="shop-link"
+              href={`https://kloviapp.com/${shop.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
+            >
+              <span className="text-xl">{action.icon}</span>
+              <p className="text-sm font-medium text-ink mt-1">{action.label}</p>
+            </a>
+          ) : (
+            <Link
+              key={action.key}
+              href={action.href}
+              className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
+            >
+              <span className="text-xl">{action.icon}</span>
+              <p className="text-sm font-medium text-ink mt-1">{action.key ? t(action.key, shop.language) : ''}</p>
+            </Link>
+          )
         ))}
       </div>
     </div>

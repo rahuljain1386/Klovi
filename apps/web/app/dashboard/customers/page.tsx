@@ -26,6 +26,14 @@ const SEGMENT_COLORS: Record<string, string> = {
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [segment, setSegment] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    notes: '',
+  });
 
   useEffect(() => {
     loadCustomers();
@@ -58,9 +66,56 @@ export default function CustomersPage() {
     setCustomers((data as Customer[]) || []);
   };
 
+  const handleAddCustomer = async () => {
+    if (!formData.name.trim()) return;
+
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: seller } = await supabase
+        .from('sellers')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!seller) return;
+
+      const { error } = await supabase.from('customers').insert({
+        seller_id: seller.id,
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || null,
+        email: formData.email.trim() || null,
+        notes: formData.notes.trim() || null,
+        segment: 'new',
+      });
+
+      if (error) {
+        console.error('Failed to add customer:', error);
+        return;
+      }
+
+      setShowAddModal(false);
+      setFormData({ name: '', phone: '', email: '', notes: '' });
+      await loadCustomers();
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div>
-      <h1 className="font-display text-2xl md:text-3xl text-ink mb-6">Customers</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="font-display text-2xl md:text-3xl text-ink">Customers</h1>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="px-4 py-2 bg-ink text-white rounded-full text-sm font-medium hover:bg-ink/90 transition-colors"
+        >
+          + Add Customer
+        </button>
+      </div>
 
       {/* Segment filter */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
@@ -143,6 +198,85 @@ export default function CustomersPage() {
             </table>
           </div>
         </>
+      )}
+
+      {/* Add Customer Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-ink/40"
+            onClick={() => setShowAddModal(false)}
+          />
+          {/* Modal */}
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
+            <h2 className="font-display text-xl text-ink mb-5">Add Customer</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">
+                  Name <span className="text-rose">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Customer name"
+                  className="w-full px-4 py-3 rounded-xl border border-[#e7e0d4] text-ink placeholder:text-warm-gray/50 focus:outline-none focus:ring-2 focus:ring-ink/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+1 (555) 123-4567"
+                  className="w-full px-4 py-3 rounded-xl border border-[#e7e0d4] text-ink placeholder:text-warm-gray/50 focus:outline-none focus:ring-2 focus:ring-ink/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="customer@example.com"
+                  className="w-full px-4 py-3 rounded-xl border border-[#e7e0d4] text-ink placeholder:text-warm-gray/50 focus:outline-none focus:ring-2 focus:ring-ink/20"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Any notes about this customer..."
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-xl border border-[#e7e0d4] text-ink placeholder:text-warm-gray/50 focus:outline-none focus:ring-2 focus:ring-ink/20 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-3 rounded-full border border-[#e7e0d4] text-warm-gray font-medium hover:text-ink transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustomer}
+                disabled={!formData.name.trim() || saving}
+                className="flex-1 px-4 py-3 rounded-full bg-ink text-white font-medium hover:bg-ink/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
