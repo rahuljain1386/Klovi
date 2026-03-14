@@ -28,11 +28,12 @@ export async function GET(request: Request) {
 
     if (!error && user) {
       // Check if seller profile exists, create if not (Google OAuth first-time)
-      const { data: existing } = await supabase
+      const { data: existingList } = await supabase
         .from('sellers')
         .select('id')
         .eq('user_id', user.id)
-        .single();
+        .limit(1);
+      const existing = existingList?.[0] || null;
 
       if (!existing) {
         // Use display name from Google, or email prefix

@@ -21,6 +21,15 @@ export default function SignupPage() {
 
   const createSellerProfile = async (userId: string) => {
     const supabase = createClient();
+
+    // Check if seller already exists — don't create duplicates
+    const { data: existingList } = await supabase
+      .from('sellers')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1);
+    if (existingList && existingList.length > 0) return;
+
     const slug = businessName
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')

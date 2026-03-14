@@ -450,7 +450,27 @@ export default function OnboardingPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/auth/login'); return; }
-      const { data: seller } = await supabase.from('sellers').select('id, slug, city, business_name').eq('user_id', user.id).single();
+
+      // Find the seller with the most products (the "real" one), or most recently active
+      const { data: sellers } = await supabase
+        .from('sellers')
+        .select('id, slug, city, business_name, status')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      let seller = sellers?.[0] || null;
+
+      // Prefer the one with 'active' status and products
+      if (sellers && sellers.length > 1) {
+        for (const s of sellers) {
+          const { count } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .eq('seller_id', s.id);
+          if ((count || 0) > 0) { seller = s; break; }
+        }
+      }
+
       if (seller) {
         setSellerId(seller.id);
         setSlug(seller.slug);
