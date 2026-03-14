@@ -35,6 +35,7 @@ export default function DashboardHome() {
   const [shop, setShop] = useState<ShopStatus | null>(null);
   const [copied, setCopied] = useState(false);
   const [recentProducts, setRecentProducts] = useState<ShopProduct[]>([]);
+  const [recentPosts, setRecentPosts] = useState<any[]>([]);
 
   useEffect(() => {
     loadShopStatus();
@@ -54,16 +55,18 @@ export default function DashboardHome() {
     if (!seller) return;
 
     // Parallel queries
-    const [productsRes, pendingRes, unreadRes, todayOrdersRes, recentProdsRes] = await Promise.all([
+    const [productsRes, pendingRes, unreadRes, todayOrdersRes, recentProdsRes, recentPostsRes] = await Promise.all([
       supabase.from('products').select('id, is_available', { count: 'exact' }).eq('seller_id', seller.id),
       supabase.from('orders').select('id', { count: 'exact' }).eq('seller_id', seller.id).in('status', ['placed', 'confirmed']),
       supabase.from('conversations').select('id', { count: 'exact' }).eq('seller_id', seller.id).gt('unread_count', 0),
       supabase.from('orders').select('total').eq('seller_id', seller.id).gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
-      supabase.from('products').select('id, name, price, currency, images, is_available').eq('seller_id', seller.id).order('sort_order').limit(6),
+      supabase.from('products').select('id, name, price, currency, images, is_available').eq('seller_id', seller.id).order('created_at', { ascending: false }).limit(6),
+      supabase.from('posts').select('id, template, caption, image_urls, status, created_at').eq('seller_id', seller.id).order('created_at', { ascending: false }).limit(3),
     ]);
 
     const products = productsRes.data || [];
     setRecentProducts((recentProdsRes.data as ShopProduct[]) || []);
+    setRecentPosts((recentPostsRes.data || []) as any[]);
     setShop({
       sellerName: seller.business_name,
       slug: seller.slug,
@@ -261,6 +264,40 @@ export default function DashboardHome() {
                 </Link>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Posts preview */}
+      {recentPosts.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-ink">Recent Posts</h2>
+            <Link href="/dashboard/posts" className="text-sm text-amber font-medium hover:underline">
+              View all &rarr;
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentPosts.map((post) => (
+              <Link key={post.id} href="/dashboard/posts" className="flex items-center gap-3 bg-white rounded-xl p-3 border border-[#e7e0d4] hover:border-amber transition-colors">
+                <div className="w-14 h-14 rounded-lg bg-cream flex-shrink-0 overflow-hidden flex items-center justify-center">
+                  {post.image_urls?.[0] ? (
+                    <img src={post.image_urls[0]} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl">🎨</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-ink capitalize">{post.template || 'Post'}</p>
+                  <p className="text-xs text-warm-gray truncate">{post.caption || 'No caption'}</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
+                  post.status === 'published' ? 'bg-green/10 text-green' : 'bg-amber/10 text-amber'
+                }`}>
+                  {post.status || 'draft'}
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       )}

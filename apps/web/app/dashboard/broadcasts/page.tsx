@@ -24,6 +24,11 @@ export default function BroadcastsPage() {
   const [segments, setSegments] = useState<string[]>(['all']);
   const [channels, setChannels] = useState<string[]>(['whatsapp']);
   const [sellerId, setSellerId] = useState('');
+  const [sellerInfo, setSellerInfo] = useState<{ business_name: string; category: string; city: string; country: string } | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generatingText, setGeneratingText] = useState(false);
+  const [generatingImage, setGeneratingImage] = useState(false);
+  const [broadcastImage, setBroadcastImage] = useState<string | null>(null);
 
   useEffect(() => {
     loadBroadcasts();
@@ -36,12 +41,13 @@ export default function BroadcastsPage() {
 
     const { data: seller } = await supabase
       .from('sellers')
-      .select('id')
+      .select('id, business_name, category, city, country')
       .eq('user_id', user.id)
       .single();
 
     if (!seller) return;
     setSellerId(seller.id);
+    setSellerInfo({ business_name: seller.business_name, category: seller.category || '', city: seller.city || '', country: seller.country || '' });
 
     const { data } = await supabase
       .from('broadcasts')
@@ -56,16 +62,21 @@ export default function BroadcastsPage() {
     if (!title.trim() || !message.trim()) return;
     const supabase = createClient();
 
+    const insertData: Record<string, unknown> = {
+      seller_id: sellerId,
+      title,
+      message,
+      segments,
+      channels,
+      status: 'draft',
+    };
+    if (broadcastImage) {
+      insertData.image_url = broadcastImage;
+    }
+
     const { data } = await supabase
       .from('broadcasts')
-      .insert({
-        seller_id: sellerId,
-        title,
-        message,
-        segments,
-        channels,
-        status: 'draft',
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -73,12 +84,75 @@ export default function BroadcastsPage() {
       setBroadcasts([data as Broadcast, ...broadcasts]);
       setTitle('');
       setMessage('');
+      setBroadcastImage(null);
+      setAiPrompt('');
       setShowCompose(false);
     }
   };
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val]);
+  };
+
+  const generateAIText = async () => {
+    if (!aiPrompt.trim()) return;
+    setGeneratingText(true);
+    try {
+      const res = await fetch('/api/ai/generate-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          businessName: sellerInfo?.business_name || '',
+          category: sellerInfo?.category || '',
+          city: sellerInfo?.city || '',
+          country: sellerInfo?.country || '',
+        }),
+      });
+      const data = await res.json();
+      if (data.title) setTitle(data.title);
+      if (data.message) setMessage(data.message);
+    } catch {
+      alert('Failed to generate text. Please try again.');
+    }
+    setGeneratingText(false);
+  };
+
+  const generateAIImage = async () => {
+    if (!title.trim() && !message.trim()) {
+      alert('Add a title or message first so the image matches your broadcast.');
+      return;
+    }
+    setGeneratingImage(true);
+    try {
+      const res = await fetch('/api/ai/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${title} - ${sellerInfo?.business_name || 'My Business'}`,
+          category: sellerInfo?.category || '',
+        }),
+      });
+      const data = await res.json();
+      if (data.image) {
+        setBroadcastImage(data.image);
+      } else {
+        alert(data.error || 'Failed to generate image');
+      }
+    } catch {
+      alert('Failed to generate image. Please try again.');
+    }
+    setGeneratingImage(false);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBroadcastImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -96,6 +170,28 @@ export default function BroadcastsPage() {
       {showCompose && (
         <div className="bg-white rounded-xl p-6 border border-[#e7e0d4] mb-6">
           <h2 className="font-semibold text-ink mb-4">Compose Broadcast</h2>
+          {/* AI Text Generation */}
+          <div className="bg-purple/5 rounded-xl p-4 border border-purple/20 mb-4">
+            <p className="text-sm font-semibold text-ink mb-2">AI Write for me</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., Weekend 20% off on sweets, Diwali special thali..."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && generateAIText()}
+                className="flex-1 px-3 py-2 border border-[#e7e0d4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <button
+                onClick={generateAIText}
+                disabled={generatingText || !aiPrompt.trim()}
+                className="px-4 py-2 bg-purple text-white text-sm font-semibold rounded-lg hover:bg-purple/90 disabled:opacity-50 whitespace-nowrap"
+              >
+                {generatingText ? 'Writing...' : 'Generate'}
+              </button>
+            </div>
+          </div>
+
           <input
             type="text"
             placeholder="Title (e.g., Weekend Special)"
@@ -110,6 +206,36 @@ export default function BroadcastsPage() {
             rows={4}
             className="w-full px-4 py-3 border border-[#e7e0d4] rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-amber resize-none"
           />
+
+          {/* Image section */}
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-ink mb-2">Image (optional)</p>
+            {broadcastImage ? (
+              <div className="relative inline-block">
+                <img src={broadcastImage} alt="Broadcast" className="w-48 h-48 object-cover rounded-xl border border-[#e7e0d4]" />
+                <button
+                  onClick={() => setBroadcastImage(null)}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-rose text-white rounded-full text-xs flex items-center justify-center"
+                >
+                  X
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <label className="px-4 py-2 bg-cream text-ink text-sm font-medium rounded-lg border border-[#e7e0d4] cursor-pointer hover:border-amber transition-colors">
+                  Upload Image
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                </label>
+                <button
+                  onClick={generateAIImage}
+                  disabled={generatingImage}
+                  className="px-4 py-2 bg-purple text-white text-sm font-semibold rounded-lg hover:bg-purple/90 disabled:opacity-50"
+                >
+                  {generatingImage ? 'Generating...' : 'AI Generate Image'}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="mb-4">
             <p className="text-sm font-semibold text-ink mb-2">Audience</p>

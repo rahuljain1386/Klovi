@@ -2197,93 +2197,89 @@ export default function OnboardingPage() {
                 <>
                   <div ref={launchPostRef}
                     className="mx-auto max-w-sm rounded-2xl overflow-hidden shadow-2xl mb-3 relative"
-                    style={{ aspectRatio: '4/5' }}>
-                    {/* BG image */}
-                    {postBgImage ? (
-                      <img src={postBgImage} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" />
-                    ) : (
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f00 0%, #2d1810 40%, #3d2200 100%)' }} />
-                    )}
-                    {/* Gradient overlay — strong for text readability */}
+                    style={{ aspectRatio: '3/4' }}>
+                    {/* Clean gradient background — no busy photos */}
                     <div className="absolute inset-0" style={{
-                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 25%, rgba(0,0,0,0.50) 50%, rgba(0,0,0,0.85) 100%)'
-                    }} />
+                      background: postBgImage
+                        ? undefined
+                        : 'linear-gradient(160deg, #1a0a00 0%, #2d1200 30%, #1a1a2e 70%, #0d0d1a 100%)'
+                    }}>
+                      {postBgImage && (
+                        <img src={postBgImage} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" style={{ filter: 'brightness(0.25) blur(2px)' }} />
+                      )}
+                    </div>
 
                     {/* Content */}
-                    <div className="relative z-10 h-full flex flex-col justify-between p-5">
-                      {/* TOP — Badge + Business Info */}
-                      <div>
-                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-4 py-2 rounded-full uppercase tracking-[0.15em] shadow-lg mb-3">
+                    <div className="relative z-10 h-full flex flex-col p-5">
+                      {/* TOP — Badge + Business Name */}
+                      <div className="text-center mb-3">
+                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-5 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg mb-3">
                           Now Open
                         </div>
-                        <h2 className="text-white text-[32px] font-bold leading-[1.1]" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 2px 16px rgba(0,0,0,0.7)' }}>
+                        <h2 className="text-white text-[28px] font-bold leading-[1.1]" style={{ fontFamily: 'Playfair Display, serif' }}>
                           {businessName || 'My Business'}
                         </h2>
-                        <p className="text-white text-base font-medium mt-2" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.7)' }}>
-                          {businessType || businessTypes.join(' & ')}
-                        </p>
-                        <p className="text-white/70 text-xs mt-1" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.7)' }}>
-                          📍 {city}
+                        <p className="text-amber/80 text-sm font-semibold mt-1">
+                          {businessType || businessTypes.join(' & ')} · 📍 {city}
                         </p>
                       </div>
 
-                      {/* MIDDLE — Tagline + featured products (max 4) */}
-                      <div className="my-4">
-                        <p className="text-amber text-sm font-bold mb-3 italic" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.7)' }}>
-                          &ldquo;Homemade with love, delivered to your door&rdquo;
-                        </p>
-                        {products.length > 0 && (
-                          <div className="grid grid-cols-2 gap-2.5">
+                      {/* PRODUCTS — the hero section, clean white cards */}
+                      {products.length > 0 && (
+                        <div className="flex-1 flex flex-col justify-center">
+                          <div className={`grid ${products.length === 1 ? 'grid-cols-1' : products.length <= 3 ? 'grid-cols-2' : 'grid-cols-2'} gap-2`}>
                             {products.slice(0, 4).map((p, i) => (
-                              <div key={i} className="rounded-xl overflow-hidden" style={{ boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
-                                <div className="aspect-square bg-black/20">
+                              <div key={i} className="bg-white rounded-xl overflow-hidden shadow-lg">
+                                <div className="aspect-[4/3] bg-gray-100">
                                   {p.image ? (
                                     <img src={p.image} alt={p.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-white/10">
+                                    <div className="w-full h-full flex items-center justify-center bg-amber/5">
                                       <span className="text-3xl">{getEmoji(p.category)}</span>
                                     </div>
                                   )}
                                 </div>
-                                <div className="bg-black/70 backdrop-blur-sm px-2 py-1.5">
-                                  <p className="text-white text-[10px] font-semibold truncate">{p.name}</p>
-                                  {p.price > 0 && <p className="text-amber text-[9px] font-bold">{currencySymbol}{p.price}</p>}
+                                <div className="px-2.5 py-2">
+                                  <p className="text-gray-900 text-[11px] font-bold truncate">{p.name}</p>
+                                  {p.price > 0 && <p className="text-amber text-[10px] font-extrabold">{currencySymbol}{p.price}</p>}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        )}
-                        {products.length > 4 && (
-                          <p className="text-white/60 text-xs text-center mt-2 font-medium">+{products.length - 4} more items</p>
-                        )}
-                      </div>
+                          {products.length > 4 && (
+                            <p className="text-white/50 text-[10px] text-center mt-2 font-medium">+{products.length - 4} more items available</p>
+                          )}
+                        </div>
+                      )}
 
-                      {/* BOTTOM — Channels + CTA */}
-                      <div>
-                        {/* Channel icons */}
-                        <div className="flex items-center justify-center gap-3 mb-3">
-                          <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                            💬 WhatsApp
+                      {/* BOTTOM — Channels + CTA + URL */}
+                      <div className="mt-3">
+                        {/* Channel badges */}
+                        <div className="flex items-center justify-center gap-2 mb-2.5">
+                          <span className="bg-green-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
+                            WhatsApp
                           </span>
                           {igHandle && (
-                            <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                              📸 Instagram
+                            <span className="bg-gradient-to-r from-purple-600 to-pink-500 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
+                              Instagram
                             </span>
                           )}
                           {fbPage && (
-                            <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1.5 rounded-full" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                              📘 Facebook
+                            <span className="bg-blue-600 text-white text-[9px] font-bold px-2.5 py-1 rounded-full">
+                              Facebook
                             </span>
                           )}
                         </div>
 
-                        {/* CTA */}
-                        <div className="bg-amber text-ink text-center py-3.5 rounded-xl font-extrabold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.5)' }}>
-                          🛒 Order Now — kloviapp.com/{slug}
+                        {/* CTA button with URL */}
+                        <div className="bg-amber text-ink text-center py-3 rounded-xl font-extrabold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
+                          Order Now
                         </div>
-
-                        <p className="text-white/30 text-[8px] text-center mt-2 uppercase tracking-[0.2em] font-medium">
-                          ⚡ Powered by Klovi
+                        <p className="text-amber/90 text-[11px] text-center mt-1.5 font-bold tracking-wide">
+                          kloviapp.com/{slug}
+                        </p>
+                        <p className="text-white/20 text-[7px] text-center mt-1.5 uppercase tracking-[0.2em]">
+                          Powered by Klovi
                         </p>
                       </div>
                     </div>
