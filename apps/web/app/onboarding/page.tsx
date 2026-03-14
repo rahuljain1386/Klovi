@@ -854,96 +854,49 @@ export default function OnboardingPage() {
     'Clothing & Fashion': 'indian ethnic wear fashion clothing',
   };
   const launchPostRef = useRef<HTMLDivElement>(null);
-  const [postBgImages, setPostBgImages] = useState<string[]>([]);
-  const [postBgIdx, setPostBgIdx] = useState(1);
   const [postTagline, setPostTagline] = useState('');
-  const [postHighlights, setPostHighlights] = useState<string[]>([]);
+  const [heroIdx, setHeroIdx] = useState(0);
 
   const generateLaunchPost = async () => {
     setGeneratingPost(true);
     try {
-      // Generate AI tagline + highlights in parallel with bg images
+      // Generate AI tagline only — no fake highlights
       const productNames = products.map(p => p.name).join(', ');
-      const priceRange = products.filter(p => p.price > 0);
-      const minPrice = priceRange.length > 0 ? Math.min(...priceRange.map(p => p.price)) : 0;
-      const maxPrice = priceRange.length > 0 ? Math.max(...priceRange.map(p => p.price)) : 0;
+      const taglineRes = await fetch('/api/ai/generate-broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Write ONLY a short catchy tagline (5-8 words max) for this business launch. NO highlights, NO bullet points.
+Business: ${businessName}, Category: ${businessType}, City: ${city}
+Products: ${productNames}
+Examples of good taglines: "Taste Rajasthan in Every Bite", "Handcrafted With Love, Worn With Pride", "Your Kitchen Away From Kitchen"
+Return JSON: { "title": "the tagline", "message": "" }`,
+          businessName, category: businessType, city,
+          country: currency === 'INR' ? 'india' : 'usa',
+        }),
+      }).catch(() => null);
 
-      const [taglineRes, bgRes] = await Promise.all([
-        fetch('/api/ai/generate-broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: `Write a launch post tagline and 3 highlight bullets for this new business:
-Business: ${businessName}
-Category: ${businessType}
-City: ${city}
-Products (${products.length} items): ${productNames}
-Price range: ${currencySymbol}${minPrice} - ${currencySymbol}${maxPrice}
-
-Return JSON: { "title": "catchy 5-8 word tagline", "message": "highlight1\\nhighlight2\\nhighlight3" }
-The tagline should be punchy and specific to this business type - NOT generic. Examples: "Authentic Rajasthani Namkeen, Made Fresh Daily" or "Handcrafted Jewelry That Tells Your Story" or "Home-Cooked Meals, Office Delivered".
-The 3 highlights should be short selling points like "10 varieties available", "Fresh daily preparation", "Free delivery in Jaipur".`,
-            businessName: businessName,
-            category: businessType,
-            city: city,
-            country: currency === 'INR' ? 'india' : 'usa',
-          }),
-        }).catch(() => null),
-        // Background images
-        (() => {
-          const catNames = new Set<string>();
-          businessTypes.forEach(bt => {
-            (BUSINESS_TYPE_TO_CATEGORIES[bt] || []).forEach(c => catNames.add(c));
-          });
-          const firstCat = Array.from(catNames)[0] || '';
-          const bgQuery = CATEGORY_BG_QUERIES[firstCat] || (businessType ? `${businessType} indian handmade` : 'artisan handmade beautiful');
-          return fetch(`/api/photos/search?q=${encodeURIComponent(bgQuery)}&per_page=5&orientation=portrait`);
-        })().catch(() => null),
-      ]);
-
-      // Process tagline
       if (taglineRes?.ok) {
         try {
           const tagData = await taglineRes.json();
           if (tagData.title) setPostTagline(tagData.title);
-          if (tagData.message) setPostHighlights(tagData.message.split('\n').filter((s: string) => s.trim()));
         } catch {}
-      }
-
-      // Process bg images
-      if (bgRes?.ok) {
-        const data = await bgRes.json();
-        const urls = (data.photos || []).map((p: { src: string }) => p.src);
-        setPostBgImages(urls);
-        const idx = urls.length > 1 ? 1 : 0;
-        setPostBgIdx(idx);
-        if (urls[idx]) {
-          const sb = createClient();
-          sb.from('sellers').update({ launch_card_bg_url: urls[idx] }).eq('id', sellerId).then(() => {});
-        }
       }
     } catch {}
     setLaunchPost('ready');
     setGeneratingPost(false);
   };
 
-  const refreshPostBg = () => {
-    if (postBgImages.length === 0) return;
-    const nextIdx = (postBgIdx + 1) % postBgImages.length;
-    setPostBgIdx(nextIdx);
-    if (postBgImages[nextIdx]) {
-      const sb = createClient();
-      sb.from('sellers').update({ launch_card_bg_url: postBgImages[nextIdx] }).eq('id', sellerId).then(() => {});
-    }
-  };
-
-  const postBgImage = postBgImages[postBgIdx] || null;
-
-  // Find the best hero product (one with an image)
-  const heroProduct = products.find(p => p.image) || products[0] || null;
+  // Cycle through product images as hero
+  const productsWithImages = products.filter(p => p.image);
+  const heroProduct = productsWithImages[heroIdx % Math.max(productsWithImages.length, 1)] || products[0] || null;
   const priceRange = products.filter(p => p.price > 0);
   const minProductPrice = priceRange.length > 0 ? Math.min(...priceRange.map(p => p.price)) : 0;
-  const maxProductPrice = priceRange.length > 0 ? Math.max(...priceRange.map(p => p.price)) : 0;
+
+  const cycleHeroImage = () => {
+    if (productsWithImages.length <= 1) return;
+    setHeroIdx((heroIdx + 1) % productsWithImages.length);
+  };
 
   const downloadLaunchPost = async () => {
     if (!launchPostRef.current) return;
@@ -2245,108 +2198,92 @@ The 3 highlights should be short selling points like "10 varieties available", "
                     className="mx-auto max-w-sm rounded-2xl overflow-hidden shadow-2xl mb-3 relative"
                     style={{ aspectRatio: '4/5' }}>
 
-                    {/* HERO IMAGE — one big product photo, the star */}
+                    {/* HERO IMAGE — one big product photo */}
                     {heroProduct?.image ? (
                       <img src={heroProduct.image} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" />
-                    ) : postBgImage ? (
-                      <img src={postBgImage} alt="" className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" />
                     ) : (
                       <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a00 0%, #3d2200 50%, #1a1a2e 100%)' }} />
                     )}
 
-                    {/* Gradient overlay — dark at top and bottom for text, clear in middle for hero image */}
+                    {/* Strong gradient — solid dark at top & bottom, hero image peeks through in center */}
                     <div className="absolute inset-0" style={{
-                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.15) 35%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.70) 70%, rgba(0,0,0,0.92) 100%)'
+                      background: 'linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 30%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.55) 65%, rgba(0,0,0,0.95) 100%)'
                     }} />
 
                     {/* Content */}
                     <div className="relative z-10 h-full flex flex-col justify-between p-5">
 
                       {/* TOP — Badge + Business Name + Tagline */}
-                      <div>
-                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-4 py-1.5 rounded-full uppercase tracking-[0.15em] shadow-lg mb-2">
+                      <div className="text-center">
+                        <div className="inline-block bg-amber text-ink text-[10px] font-extrabold px-5 py-2 rounded-full uppercase tracking-[0.2em] shadow-lg mb-3">
                           Now Open
                         </div>
-                        <h2 className="text-white text-[30px] font-bold leading-[1.05]" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 2px 20px rgba(0,0,0,0.8)' }}>
+                        <h2 className="text-white text-[32px] font-bold leading-[1.05]" style={{ fontFamily: 'Playfair Display, serif', textShadow: '0 3px 20px rgba(0,0,0,1)' }}>
                           {businessName || 'My Business'}
                         </h2>
                         {postTagline && (
-                          <p className="text-amber text-[13px] font-bold mt-1.5 leading-snug" style={{ textShadow: '0 1px 8px rgba(0,0,0,0.9)' }}>
+                          <p className="text-amber text-[14px] font-bold mt-2 leading-snug" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>
                             {postTagline}
                           </p>
                         )}
-                        <p className="text-white/70 text-[11px] font-medium mt-1" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.8)' }}>
+                        <p className="text-white text-[12px] font-semibold mt-1.5" style={{ textShadow: '0 2px 8px rgba(0,0,0,1)' }}>
                           📍 {city}
                         </p>
                       </div>
 
-                      {/* BOTTOM — Product strip + highlights + CTA */}
+                      {/* BOTTOM — Product thumbnails + facts + CTA */}
                       <div>
-                        {/* Mini product strip — shows variety, not a catalog */}
+                        {/* Product thumbnail strip */}
                         {products.length > 1 && (
-                          <div className="flex gap-1.5 mb-3 overflow-hidden">
-                            {products.filter(p => p.image).slice(0, 6).map((p, i) => (
-                              <div key={i} className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border-2 border-white/30 shadow-lg">
+                          <div className="flex gap-1.5 mb-3 justify-center">
+                            {products.filter(p => p.image).slice(0, 5).map((p, i) => (
+                              <div key={i} className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white/40 shadow-xl">
                                 <img src={p.image!} alt={p.name} className="w-full h-full object-cover" crossOrigin="anonymous" />
                               </div>
                             ))}
-                            {products.length > 6 && (
-                              <div className="w-12 h-12 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 border-2 border-white/30">
-                                <span className="text-white text-[10px] font-bold">+{products.length - 6}</span>
+                            {products.length > 5 && (
+                              <div className="w-14 h-14 rounded-xl bg-black/60 backdrop-blur flex items-center justify-center flex-shrink-0 border-2 border-white/30">
+                                <span className="text-white text-[11px] font-bold">+{products.length - 5}</span>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {/* Highlights — what makes this business special */}
-                        <div className="mb-3">
-                          {postHighlights.length > 0 ? (
-                            <div className="space-y-1">
-                              {postHighlights.slice(0, 3).map((h, i) => (
-                                <p key={i} className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
-                                  ✓ {h}
-                                </p>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <p className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
-                                ✓ {products.length} {products.length === 1 ? 'item' : 'items'} available
-                              </p>
-                              {minProductPrice > 0 && (
-                                <p className="text-white text-[11px] font-semibold" style={{ textShadow: '0 1px 6px rgba(0,0,0,0.9)' }}>
-                                  ✓ Starting at {currencySymbol}{minProductPrice}
-                                </p>
-                              )}
-                            </div>
-                          )}
+                        {/* Facts — ONLY real info, no assumptions */}
+                        <div className="text-center mb-3">
+                          <p className="text-white text-[13px] font-bold" style={{ textShadow: '0 2px 8px rgba(0,0,0,1)' }}>
+                            {products.length} {products.length === 1 ? 'item' : 'items'}{minProductPrice > 0 ? ` · Starting ${currencySymbol}${minProductPrice}` : ''}
+                          </p>
                         </div>
 
                         {/* Channel badges */}
-                        <div className="flex items-center gap-1.5 mb-2.5">
-                          <span className="bg-green-600 text-white text-[8px] font-bold px-2 py-1 rounded-full shadow">WhatsApp</span>
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <span className="bg-green-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
+                            WhatsApp
+                          </span>
                           {igHandle && (
-                            <span className="text-white text-[8px] font-bold px-2 py-1 rounded-full shadow" style={{ background: 'linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045)' }}>Instagram</span>
+                            <span className="text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg" style={{ background: 'linear-gradient(45deg, #833ab4, #fd1d1d, #fcb045)' }}>
+                              Instagram
+                            </span>
                           )}
                           {fbPage && (
-                            <span className="bg-blue-600 text-white text-[8px] font-bold px-2 py-1 rounded-full shadow">Facebook</span>
+                            <span className="bg-blue-600 text-white text-[9px] font-bold px-3 py-1.5 rounded-full shadow-lg">
+                              Facebook
+                            </span>
                           )}
                         </div>
 
-                        {/* CTA */}
-                        <div className="bg-amber text-ink text-center py-3 rounded-xl font-extrabold text-sm shadow-lg" style={{ boxShadow: '0 4px 20px rgba(245,158,11,0.4)' }}>
-                          Order Now — kloviapp.com/{slug}
+                        {/* CTA — simple, no URL */}
+                        <div className="bg-amber text-ink text-center py-3.5 rounded-xl font-extrabold text-base shadow-xl" style={{ boxShadow: '0 4px 25px rgba(245,158,11,0.5)' }}>
+                          Order on WhatsApp
                         </div>
-                        <p className="text-white/25 text-[7px] text-center mt-2 uppercase tracking-[0.2em]">
-                          Powered by Klovi
-                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Refresh bg button */}
-                  {postBgImages.length > 1 && (
-                    <button onClick={refreshPostBg} className="text-warm-gray text-xs hover:text-amber transition-colors mb-4">
+                  {/* Cycle hero image */}
+                  {productsWithImages.length > 1 && (
+                    <button onClick={cycleHeroImage} className="text-warm-gray text-xs hover:text-amber transition-colors mb-4">
                       Try different photo 🔄
                     </button>
                   )}
@@ -2361,10 +2298,15 @@ The 3 highlights should be short selling points like "10 varieties available", "
                       {t('channels.download', language)}
                     </button>
                     <button onClick={() => {
-                      if (navigator.share) navigator.share({ title: `${businessName} is open!`, url: `${window.location.origin}/${slug}` });
+                      const shareText = `${businessName} is now open! 🎉\n\nOrder here: ${window.location.origin}/${slug}\n\nOr message us on WhatsApp to order!`;
+                      if (navigator.share) {
+                        navigator.share({ title: `${businessName} is open!`, text: shareText, url: `${window.location.origin}/${slug}` });
+                      } else {
+                        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
+                      }
                     }}
-                      className="flex-1 py-3 bg-amber/10 text-amber rounded-xl font-semibold text-sm hover:bg-amber/20 transition-colors border border-amber/30">
-                      {t('live.share', language)}
+                      className="flex-1 py-3 bg-green text-white rounded-xl font-semibold text-sm hover:bg-green/90 transition-colors">
+                      Share on WhatsApp
                     </button>
                   </div>
                   <button onClick={saveChannels}
