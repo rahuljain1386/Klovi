@@ -68,7 +68,7 @@ function getBgQuery(seller: { category: string; city?: string }) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { seller: slug } = await params;
   const supabase = await createClient();
-  const { data: s } = await supabase.from('sellers').select('business_name, tagline, description, city, category, launch_card_bg_url, avatar_url').eq('slug', slug).eq('status', 'active').single();
+  const { data: s } = await supabase.from('sellers').select('business_name, tagline, description, city, category, launch_card_bg_url, avatar_url').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!s) return { title: 'Not Found - Klovi' };
   const desc = s.tagline || s.description || `${s.category} in ${s.city}`;
   return {
@@ -81,10 +81,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SellerStorefront({ params }: Props) {
   const { seller: slug } = await params;
   const supabase = await createClient();
-  const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).eq('status', 'active').single();
+  const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!seller) notFound();
 
-  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
+  // Show products that are active OR have no status set (older products before status field was added)
+  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).or('status.eq.active,status.is.null').order('sort_order');
   const { data: reviews } = await supabase.from('reviews').select('*, customers(name)').eq('seller_id', seller.id).eq('status', 'published').order('created_at', { ascending: false }).limit(10);
 
   const sym = seller.country === 'india' ? '₹' : '$';
