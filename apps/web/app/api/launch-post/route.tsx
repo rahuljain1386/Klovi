@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const { data: seller } = await supabase
     .from('sellers')
-    .select('id, business_name, tagline, ai_tagline, city, category, niche, owner_name')
+    .select('id, business_name, tagline, ai_tagline, city, niche, owner_name, launch_offer')
     .eq('slug', slug)
     .single();
 
@@ -27,39 +27,40 @@ export async function GET(request: Request) {
     return new Response('Seller not found', { status: 404 });
   }
 
+  // Get products WITH images
   const { data: products } = await supabase
     .from('products')
-    .select('name, price, currency')
+    .select('name, price, currency, images')
     .eq('seller_id', seller.id)
     .eq('status', 'active')
     .order('sort_order')
     .limit(4);
 
-  const tagline = seller.tagline || seller.ai_tagline || '';
   const productList = (products || []).slice(0, 4);
-  const sym = (productList[0]?.currency === 'USD') ? '$' : '₹';
   const businessName = seller.business_name || 'My Shop';
+  const tagline = seller.tagline || seller.ai_tagline || '';
+  const launchOffer = seller.launch_offer || '';
   const cityName = seller.city || '';
 
-  // Build product pill elements (avoid conditional .map inside JSX)
-  const productPills = productList.map((p: any, i: number) => (
-    <div
-      key={i}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        background: 'rgba(255,255,255,0.1)',
-        border: '1px solid rgba(255,255,255,0.2)',
-        borderRadius: 16,
-        padding: '16px 28px',
-      }}
-    >
-      <span style={{ fontSize: 22, color: 'white', fontWeight: 600 }}>{p.name}</span>
-      {p.price > 0 ? (
-        <span style={{ fontSize: 18, color: '#f59e0b', fontWeight: 700, marginLeft: 10 }}>{sym}{p.price}</span>
-      ) : null}
-    </div>
-  ));
+  // Collect product images (from DALL-E catalog)
+  const productImages: string[] = [];
+  for (const p of productList) {
+    if (p.images && Array.isArray(p.images) && p.images[0]) {
+      productImages.push(p.images[0]);
+    }
+  }
+
+  // Pick warm niche colors
+  const nicheColors: Record<string, { bg1: string; bg2: string; accent: string }> = {
+    snacks: { bg1: '#fef3c7', bg2: '#fff7ed', accent: '#d97706' },
+    bakery: { bg1: '#fce7f3', bg2: '#fff1f2', accent: '#db2777' },
+    coaching: { bg1: '#dbeafe', bg2: '#eff6ff', accent: '#2563eb' },
+    spiritual_healing: { bg1: '#ede9fe', bg2: '#f5f3ff', accent: '#7c3aed' },
+  };
+  const colors = nicheColors[seller.niche || ''] || nicheColors.snacks;
+
+  // Determine if we have product images to show
+  const hasImages = productImages.length >= 2;
 
   return new ImageResponse(
     (
@@ -69,72 +70,117 @@ export async function GET(request: Request) {
           height: 1080,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#1a1a2e',
+          background: `linear-gradient(180deg, ${colors.bg1} 0%, ${colors.bg2} 50%, white 100%)`,
           fontFamily: 'sans-serif',
+          position: 'relative',
         }}
       >
-        {/* Top label */}
-        <div style={{ display: 'flex', marginBottom: 24 }}>
-          <span style={{ fontSize: 16, color: '#f59e0b', letterSpacing: 4, fontWeight: 700 }}>POWERED BY KLOVI</span>
-        </div>
+        {/* Top accent bar */}
+        <div style={{ display: 'flex', width: '100%', height: 8, background: colors.accent }} />
 
-        {/* Business Name */}
-        <div style={{ display: 'flex', marginBottom: 16, padding: '0 60px' }}>
-          <span style={{ fontSize: 64, fontWeight: 900, color: 'white', textAlign: 'center' as const }}>
-            {businessName}
-          </span>
-        </div>
-
-        {/* Tagline */}
-        {tagline ? (
-          <div style={{ display: 'flex', marginBottom: 12, padding: '0 80px' }}>
-            <span style={{ fontSize: 26, color: '#d1d5db', fontStyle: 'italic' as const }}>
-              {tagline}
+        {/* Header section */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '60px 60px 30px' }}>
+          {/* Business name — big and bold */}
+          <div style={{ display: 'flex', marginBottom: 12 }}>
+            <span style={{ fontSize: 72, fontWeight: 900, color: '#1a1a1a', letterSpacing: -2 }}>
+              {businessName}
             </span>
           </div>
-        ) : null}
 
-        {/* City */}
-        {cityName ? (
-          <div style={{ display: 'flex', marginBottom: 40 }}>
-            <span style={{ fontSize: 22, color: '#f59e0b' }}>
-              {cityName}
-            </span>
-          </div>
-        ) : null}
-
-        {/* Products section */}
-        {productList.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 40 }}>
-            <div style={{ display: 'flex', marginBottom: 20 }}>
-              <span style={{ fontSize: 14, color: '#9ca3af', letterSpacing: 4, fontWeight: 700 }}>OUR SPECIALTIES</span>
+          {/* Tagline */}
+          {tagline ? (
+            <div style={{ display: 'flex', marginBottom: 8 }}>
+              <span style={{ fontSize: 28, color: '#6b7280', fontStyle: 'italic' as const }}>
+                {tagline}
+              </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, justifyContent: 'center', padding: '0 60px' }}>
-              {productPills}
-            </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* CTA button */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#22c55e',
-            borderRadius: 24,
-            padding: '24px 72px',
-            marginBottom: 20,
-          }}
-        >
-          <span style={{ fontSize: 32, fontWeight: 800, color: 'white' }}>Order on WhatsApp</span>
+          {/* City */}
+          {cityName ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 22, color: colors.accent, fontWeight: 600 }}>
+                {cityName}
+              </span>
+            </div>
+          ) : null}
         </div>
 
-        {/* URL */}
-        <div style={{ display: 'flex' }}>
-          <span style={{ fontSize: 24, color: '#9ca3af' }}>kloviapp.com/{slug}</span>
+        {/* Product images grid — the hero visual */}
+        {hasImages ? (
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, padding: '20px 60px 30px', flexWrap: 'wrap' }}>
+            {productImages.slice(0, 4).map((imgUrl, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  width: productImages.length <= 2 ? 400 : 220,
+                  height: productImages.length <= 2 ? 400 : 220,
+                  borderRadius: 24,
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imgUrl}
+                  alt=""
+                  width={productImages.length <= 2 ? 400 : 220}
+                  height={productImages.length <= 2 ? 400 : 220}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          // No images — show product names in a clean list
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 80px', gap: 16 }}>
+            {productList.map((p: any, i: number) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'white',
+                  borderRadius: 16,
+                  padding: '16px 40px',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                }}
+              >
+                <span style={{ fontSize: 26, color: '#1a1a1a', fontWeight: 600 }}>{p.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Launch offer banner */}
+        {launchOffer ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '0 80px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', background: colors.accent, borderRadius: 16, padding: '14px 40px' }}>
+              <span style={{ fontSize: 24, fontWeight: 700, color: 'white' }}>{launchOffer}</span>
+            </div>
+          </div>
+        ) : null}
+
+        {/* CTA — big green WhatsApp button */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 60px', marginTop: 'auto', marginBottom: 50 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#25D366',
+              borderRadius: 30,
+              padding: '22px 64px',
+              marginBottom: 16,
+              boxShadow: '0 6px 24px rgba(37, 211, 102, 0.35)',
+            }}
+          >
+            <span style={{ fontSize: 36, fontWeight: 800, color: 'white' }}>Order Now</span>
+          </div>
+          <div style={{ display: 'flex' }}>
+            <span style={{ fontSize: 22, color: '#9ca3af' }}>kloviapp.com/{slug}</span>
+          </div>
         </div>
       </div>
     ),

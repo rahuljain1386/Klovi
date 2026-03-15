@@ -18,7 +18,7 @@ const useEditTracker = () => {
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Step = 'about' | 'products' | 'business' | 'live';
 type Niche = 'snacks' | 'bakery' | 'coaching' | 'spiritual_healing' | 'other';
-type DeliveryType = 'pickup_only' | 'local_delivery' | 'nationwide';
+type DeliveryMode = 'pickup' | 'delivery' | 'shipping';
 
 interface CatalogProduct {
   name: string; category: string; parentCategory: string;
@@ -120,7 +120,7 @@ export default function OnboardingPage() {
   const [address, setAddress] = useState('');
   const [addressDetails, setAddressDetails] = useState<any>(null);
   const [city, setCity] = useState('');
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>('pickup_only');
+  const [deliveryModes, setDeliveryModes] = useState<Set<DeliveryMode>>(new Set(['pickup']));
   const [payments, setPayments] = useState<string[]>(['cash']);
   const [whatsapp, setWhatsapp] = useState('');
   const [currency, setCurrency] = useState('INR');
@@ -432,14 +432,14 @@ export default function OnboardingPage() {
         address_lat: addressDetails?.lat || null,
         address_lng: addressDetails?.lng || null,
         google_place_id: null,
-        delivery_type: deliveryType,
+        delivery_type: Array.from(deliveryModes).join(','),
         country: (addressDetails?.countryCode || countryCode) === 'IN' ? 'india' : 'usa',
         whatsapp_number: cleanedPhone,
         phone: cleanedPhone,
         whatsapp_path: 'own_number',
         cod_enabled: payments.includes('cash'),
         upi_id: payments.includes('upi') ? '' : null,
-        fulfillment_modes: deliveryType === 'pickup_only' ? ['pickup'] : deliveryType === 'local_delivery' ? ['pickup', 'delivery'] : ['delivery'],
+        fulfillment_modes: Array.from(deliveryModes),
         pickup_address: address || null,
         onboarding_completed_at: new Date().toISOString(),
       };
@@ -783,31 +783,46 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Delivery */}
+            {/* Delivery — multi-select */}
             <div>
-              <label className="text-sm font-medium text-ink block mb-2">Do you deliver?</label>
+              <label className="text-sm font-medium text-ink block mb-2">How do customers get orders?</label>
+              <p className="text-warm-gray text-xs mb-2">Select all that apply</p>
               <div className="space-y-2">
                 {[
-                  { id: 'pickup_only' as DeliveryType, label: 'Pickup Only', desc: 'Customers come to you' },
-                  { id: 'local_delivery' as DeliveryType, label: 'Local Delivery', desc: 'You deliver in your city' },
-                  { id: 'nationwide' as DeliveryType, label: isIndia ? 'PAN India' : 'Nationwide', desc: isIndia ? 'Ship across India' : 'Ship across the USA' },
-                ].map(d => (
-                  <button
-                    key={d.id}
-                    onClick={() => setDeliveryType(d.id)}
-                    className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-all ${
-                      deliveryType === d.id
-                        ? 'bg-amber/10 border-2 border-amber'
-                        : 'bg-white border border-border hover:border-amber/50'
-                    }`}
-                  >
-                    <div className="flex-1">
-                      <span className="font-medium text-ink text-sm">{d.label}</span>
-                      <span className="text-warm-gray text-xs block">{d.desc}</span>
-                    </div>
-                    {deliveryType === d.id && <span className="text-amber text-lg">✓</span>}
-                  </button>
-                ))}
+                  { id: 'pickup' as DeliveryMode, label: 'Pickup', desc: 'Customers come to you', emoji: '🏠' },
+                  { id: 'delivery' as DeliveryMode, label: 'Local Delivery', desc: 'You deliver in your city', emoji: '🛵' },
+                  { id: 'shipping' as DeliveryMode, label: isIndia ? 'PAN India Shipping' : 'Nationwide Shipping', desc: isIndia ? 'Ship across India' : 'Ship across the USA', emoji: '📦' },
+                ].map(d => {
+                  const selected = deliveryModes.has(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => {
+                        setDeliveryModes(prev => {
+                          const next = new Set(prev);
+                          if (next.has(d.id)) {
+                            if (next.size > 1) next.delete(d.id); // keep at least one
+                          } else {
+                            next.add(d.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-all ${
+                        selected
+                          ? 'bg-amber/10 border-2 border-amber'
+                          : 'bg-white border border-border hover:border-amber/50'
+                      }`}
+                    >
+                      <span className="text-xl">{d.emoji}</span>
+                      <div className="flex-1">
+                        <span className="font-medium text-ink text-sm">{d.label}</span>
+                        <span className="text-warm-gray text-xs block">{d.desc}</span>
+                      </div>
+                      {selected && <span className="text-amber text-lg">✓</span>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -910,22 +925,22 @@ export default function OnboardingPage() {
                 />
               </div>
 
-              {/* Share text preview */}
+              {/* Share text — short & punchy */}
               <div className="mx-4 mb-3 bg-cream rounded-xl p-3">
                 <p className="text-sm text-ink whitespace-pre-line" id="share-text">
-                  {`🎉 Exciting news! ${businessName} is NOW LIVE!\n\n${aiProfile?.tagline ? `✨ ${aiProfile.tagline}\n\n` : ''}${Array.from(selectedProducts).slice(0, 4).map(p => `• ${p}`).join('\n')}\n\n📱 Check menu & order:\nhttps://kloviapp.com/${slug}\n\n💬 Or WhatsApp us directly!\nwa.me/918854054503?text=${encodeURIComponent(`Hi! I'd like to order from ${businessName} (klovi/${slug})`)}`}
+                  {`${businessName} is now on Klovi! ${aiProfile?.tagline ? aiProfile.tagline + ' ' : ''}Order here:\nhttps://kloviapp.com/${slug}`}
                 </p>
               </div>
 
               {/* Share buttons */}
               <div className="px-4 pb-4 space-y-2">
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`🎉 Exciting news! ${businessName} is NOW LIVE!\n\n${aiProfile?.tagline ? `✨ ${aiProfile.tagline}\n\n` : ''}${Array.from(selectedProducts).slice(0, 4).map(p => `• ${p}`).join('\n')}\n\n📱 Check menu & order:\nhttps://kloviapp.com/${slug}\n\n💬 Or WhatsApp us directly!`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(`${businessName} is now on Klovi! ${aiProfile?.tagline ? aiProfile.tagline + ' ' : ''}Order here: https://kloviapp.com/${slug}`)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-3.5 bg-green text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-green/90 transition-colors min-h-[52px]"
                 >
-                  💬 Share on WhatsApp
+                  Share on WhatsApp
                 </a>
                 <div className="flex gap-2">
                   <a
@@ -934,17 +949,17 @@ export default function OnboardingPage() {
                     rel="noopener noreferrer"
                     className="flex-1 py-3 bg-blue/10 text-blue rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-blue/20 transition-colors"
                   >
-                    📘 Facebook
+                    Facebook
                   </a>
                   <button
                     onClick={() => {
                       navigator.clipboard?.writeText(
-                        `🎉 ${businessName} is NOW LIVE!\n\n📱 Order: https://kloviapp.com/${slug}`
+                        `${businessName} is now on Klovi! Order here: https://kloviapp.com/${slug}`
                       );
                     }}
                     className="flex-1 py-3 bg-cream text-ink rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 border border-border hover:bg-amber/10 transition-colors"
                   >
-                    📋 Copy Text
+                    Copy Link
                   </button>
                 </div>
                 <button
