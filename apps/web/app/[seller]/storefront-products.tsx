@@ -222,6 +222,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
           location: seller.city,
           allows_custom: seller.allows_custom_orders,
           delivery_type: seller.delivery_type || seller.fulfillment_modes?.[0],
+          seller_slug: seller.slug,
         }),
       });
       const { message } = await res.json();
@@ -229,7 +230,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
     } catch {
       const varStr = variant ? ` — ${variant.label}` : '';
       const priceStr = variant?.price || product.price;
-      setOrderMessage(`Hi! I'd like to order ${qty > 1 ? qty + 'x ' : ''}${product.name}${varStr} (${currSym}${priceStr}) from *${businessName}* (klovi/${seller.slug}). Can you share availability? 🙏`);
+      setOrderMessage(`Hi! I'd like to order ${qty > 1 ? qty + 'x ' : ''}*${product.name}*${varStr} (${currSym}${priceStr}) from *${businessName}* (klovi/${seller.slug}). Can you share availability? 🙏`);
     } finally {
       setMessageLoading(false);
     }

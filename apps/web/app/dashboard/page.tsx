@@ -5,15 +5,6 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
 
-type ShopProduct = {
-  id: string;
-  name: string;
-  price: number;
-  currency: string;
-  images: string[] | null;
-  is_available: boolean;
-};
-
 type ShopStatus = {
   sellerName: string;
   slug: string;
@@ -21,7 +12,6 @@ type ShopStatus = {
   availableCount: number;
   pendingOrders: number;
   unreadMessages: number;
-  totalCustomers: number;
   todayOrders: number;
   todayRevenue: number;
   currency: string;
@@ -34,8 +24,6 @@ type ShopStatus = {
 export default function DashboardHome() {
   const [shop, setShop] = useState<ShopStatus | null>(null);
   const [copied, setCopied] = useState(false);
-  const [recentProducts, setRecentProducts] = useState<ShopProduct[]>([]);
-  const [recentPosts, setRecentPosts] = useState<any[]>([]);
 
   useEffect(() => {
     loadShopStatus();
@@ -54,19 +42,14 @@ export default function DashboardHome() {
 
     if (!seller) return;
 
-    // Parallel queries
-    const [productsRes, pendingRes, unreadRes, todayOrdersRes, recentProdsRes, recentPostsRes] = await Promise.all([
+    const [productsRes, pendingRes, unreadRes, todayOrdersRes] = await Promise.all([
       supabase.from('products').select('id, is_available', { count: 'exact' }).eq('seller_id', seller.id),
       supabase.from('orders').select('id', { count: 'exact' }).eq('seller_id', seller.id).in('status', ['placed', 'confirmed']),
       supabase.from('conversations').select('id', { count: 'exact' }).eq('seller_id', seller.id).gt('unread_count', 0),
       supabase.from('orders').select('total').eq('seller_id', seller.id).gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
-      supabase.from('products').select('id, name, price, currency, images, is_available').eq('seller_id', seller.id).order('created_at', { ascending: false }).limit(6),
-      supabase.from('posts').select('id, template, caption, image_urls, status, created_at').eq('seller_id', seller.id).order('created_at', { ascending: false }).limit(3),
     ]);
 
     const products = productsRes.data || [];
-    setRecentProducts((recentProdsRes.data as ShopProduct[]) || []);
-    setRecentPosts((recentPostsRes.data || []) as any[]);
     setShop({
       sellerName: seller.business_name,
       slug: seller.slug,
@@ -74,7 +57,6 @@ export default function DashboardHome() {
       availableCount: products.filter(p => p.is_available).length,
       pendingOrders: pendingRes.count || 0,
       unreadMessages: unreadRes.count || 0,
-      totalCustomers: seller.total_customers || 0,
       todayOrders: todayOrdersRes.data?.length || 0,
       todayRevenue: todayOrdersRes.data?.reduce((sum: number, o: any) => sum + (o.total || 0), 0) || 0,
       currency: seller.country === 'india' ? 'INR' : 'USD',
@@ -109,7 +91,7 @@ export default function DashboardHome() {
   }
 
   const currencySymbol = shop.currency === 'INR' ? '\u20B9' : '$';
-  const isNewSeller = shop.todayOrders === 0 && shop.totalCustomers === 0;
+  const isNewSeller = shop.todayOrders === 0 && shop.productCount === 0;
 
   return (
     <div>
@@ -119,7 +101,7 @@ export default function DashboardHome() {
         <h1 className="font-display text-2xl md:text-3xl text-ink">{shop.sellerName}</h1>
       </div>
 
-      {/* Shop link card — always visible, prominent */}
+      {/* Shop link card */}
       <div className="bg-white rounded-xl p-4 md:p-5 border border-[#e7e0d4] mb-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs text-warm-gray">{t('dash.shopLink', shop.language)}</p>
@@ -143,18 +125,20 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      {/* Shop snapshot — what matters */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <Link href="/dashboard/products" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
-          <p className="text-2xl font-bold text-ink">{shop.productCount}</p>
-          <p className="text-sm text-warm-gray">{t('dash.products', shop.language)}</p>
-          <p className="text-xs text-green mt-1">{shop.availableCount} {t('dash.available', shop.language)}</p>
-        </Link>
+      {/* Today's snapshot — 3 cards */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <Link href="/dashboard/orders" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
           <p className="text-2xl font-bold text-ink">{shop.todayOrders}</p>
           <p className="text-sm text-warm-gray">{t('dash.todayOrders', shop.language)}</p>
           {shop.todayRevenue > 0 && (
-            <p className="text-xs text-green mt-1">{currencySymbol}{shop.todayRevenue.toFixed(0)} {t('dash.earned', shop.language)}</p>
+            <p className="text-xs text-green mt-1">{currencySymbol}{shop.todayRevenue.toFixed(0)}</p>
+          )}
+        </Link>
+        <Link href="/dashboard/orders" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
+          <p className="text-2xl font-bold text-ink">{shop.pendingOrders}</p>
+          <p className="text-sm text-warm-gray">{t('dash.ordersPending', shop.language)}</p>
+          {shop.pendingOrders > 0 && (
+            <p className="text-xs text-amber mt-1">{t('dash.reviewConfirm', shop.language)}</p>
           )}
         </Link>
         <Link href="/dashboard/inbox" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
@@ -164,13 +148,9 @@ export default function DashboardHome() {
             <p className="text-xs text-amber mt-1">{t('dash.needsReply', shop.language)}</p>
           )}
         </Link>
-        <Link href="/dashboard/customers" className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors">
-          <p className="text-2xl font-bold text-ink">{shop.totalCustomers}</p>
-          <p className="text-sm text-warm-gray">{t('dash.customers', shop.language)}</p>
-        </Link>
       </div>
 
-      {/* Action items — things that need attention */}
+      {/* Needs attention — action items */}
       {(shop.pendingOrders > 0 || shop.unreadMessages > 0) && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.attention', shop.language)}</h2>
@@ -206,7 +186,7 @@ export default function DashboardHome() {
               done={shop.productCount > 0}
               label={t('dash.addProducts', shop.language)}
               subtitle={shop.productCount > 0 ? `${shop.productCount} ${t('dash.productsAdded', shop.language)}` : t('dash.listSell', shop.language)}
-              href="/dashboard/products"
+              href="/dashboard/settings"
             />
             <ChecklistItem
               done={shop.hasWhatsApp}
@@ -235,107 +215,6 @@ export default function DashboardHome() {
           </div>
         </div>
       )}
-
-      {/* Your Products preview */}
-      {recentProducts.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-ink">{t('dash.products', shop.language)}</h2>
-            <Link href="/dashboard/products" className="text-sm text-amber font-medium hover:underline">
-              View all &rarr;
-            </Link>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {recentProducts.map((product) => {
-              const sym = product.currency === 'INR' ? '\u20B9' : '$';
-              return (
-                <Link key={product.id} href="/dashboard/products" className="bg-white rounded-xl border border-[#e7e0d4] overflow-hidden hover:border-amber transition-colors">
-                  <div className="h-20 bg-cream flex items-center justify-center">
-                    {product.images?.[0] ? (
-                      <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl">📦</span>
-                    )}
-                  </div>
-                  <div className="p-2">
-                    <p className="text-xs font-medium text-ink truncate">{product.name}</p>
-                    {product.price > 0 && <p className="text-[10px] text-green">{sym}{product.price}</p>}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Posts preview */}
-      {recentPosts.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-ink">Recent Posts</h2>
-            <Link href="/dashboard/posts" className="text-sm text-amber font-medium hover:underline">
-              View all &rarr;
-            </Link>
-          </div>
-          <div className="space-y-2">
-            {recentPosts.map((post) => (
-              <Link key={post.id} href="/dashboard/posts" className="flex items-center gap-3 bg-white rounded-xl p-3 border border-[#e7e0d4] hover:border-amber transition-colors">
-                <div className="w-14 h-14 rounded-lg bg-cream flex-shrink-0 overflow-hidden flex items-center justify-center">
-                  {post.image_urls?.[0] ? (
-                    <img src={post.image_urls[0]} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xl">🎨</span>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink capitalize">{post.template || 'Post'}</p>
-                  <p className="text-xs text-warm-gray truncate">{post.caption || 'No caption'}</p>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
-                  post.status === 'published' ? 'bg-green/10 text-green' : 'bg-amber/10 text-amber'
-                }`}>
-                  {post.status || 'draft'}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Quick actions */}
-      <h2 className="text-lg font-semibold text-ink mb-3">{t('dash.quickActions', shop.language)}</h2>
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { key: 'dash.addProduct', href: '/dashboard/products', icon: '➕' },
-          { key: 'dash.createPost', href: '/dashboard/posts', icon: '🎨' },
-          { key: 'dash.broadcast', href: '/dashboard/broadcasts', icon: '📢' },
-          { key: 'dash.customers', href: '/dashboard/customers', icon: '👥' },
-          { key: 'dash.settings', href: '/dashboard/settings', icon: '⚙️' },
-          { label: 'View Shop', href: '', icon: '👁️', isShopLink: true },
-        ].map((action) => (
-          action.isShopLink ? (
-            <a
-              key="shop-link"
-              href={`https://kloviapp.com/${shop.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
-            >
-              <span className="text-xl">{action.icon}</span>
-              <p className="text-sm font-medium text-ink mt-1">{action.label}</p>
-            </a>
-          ) : (
-            <Link
-              key={action.key}
-              href={action.href}
-              className="bg-white rounded-xl p-4 border border-[#e7e0d4] hover:border-amber transition-colors text-center"
-            >
-              <span className="text-xl">{action.icon}</span>
-              <p className="text-sm font-medium text-ink mt-1">{action.key ? t(action.key, shop.language) : ''}</p>
-            </Link>
-          )
-        ))}
-      </div>
     </div>
   );
 }

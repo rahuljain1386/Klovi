@@ -16,35 +16,39 @@ export async function POST(request: Request) {
     location,
     allows_custom,
     delivery_type,
+    seller_slug,
   } = body
 
   if (!product_name) {
     return NextResponse.json({ error: 'Missing product_name' }, { status: 400 })
   }
 
-  const cacheKey = `${product_name}:${variant_label || ''}:${category || ''}`
+  const cacheKey = `${product_name}:${variant_label || ''}:${category || ''}:${seller_slug || ''}`
   if (messageCache.has(cacheKey)) {
     return NextResponse.json({ message: messageCache.get(cacheKey) })
   }
 
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    const fallback = buildFallback(product_name, variant_label, variant_price, currency, quantity)
+    const fallback = buildFallback(product_name, business_name, seller_slug, variant_label, variant_price, currency, quantity)
     return NextResponse.json({ message: fallback })
   }
 
   const sym = currency === 'INR' ? '₹' : '$'
 
+  // Build routing tag that the webhook uses to identify the seller
+  const routingTag = seller_slug ? ` (klovi/${seller_slug})` : ''
+
   const systemPrompt = `You write WhatsApp pre-fill messages for home business orders in India and USA. The customer is sending this to the seller.
 
 Rules:
-- Line 1: "Hi! I'd like to order [Product] — [Variant] ([Currency][Price])"
-  If quantity > 1: "...order [Qty]x [Product]..."
+- Line 1: "Hi! I'd like to order *[Product]* — [Variant] ([Currency][Price]) from *[Business Name]*${routingTag}"
+  If quantity > 1: "...order [Qty]x *[Product]*..."
   If no variant: just product name and price
+  IMPORTANT: Always include the business name and the routing tag "${routingTag}" exactly as shown at the end of line 1
 - Lines 2-4: 2-3 short follow-up questions for THIS category
 - Keep total under 5 lines
 - Natural and conversational, not formal
-- No mention of Klovi, no platform branding
 - End with 🙏
 
 Category-specific questions:
@@ -133,23 +137,33 @@ ${delivery_type ? `Fulfillment: ${delivery_type}` : ''}`
     })
 
     if (!res.ok) {
-      const fallback = buildFallback(product_name, variant_label, variant_price, currency, quantity)
+      const fallback = buildFallback(product_name, business_name, seller_slug, variant_label, variant_price, currency, quantity)
       return NextResponse.json({ message: fallback })
     }
 
     const data = await res.json()
-    const message = data.choices?.[0]?.message?.content?.trim() || buildFallback(product_name, variant_label, variant_price, currency, quantity)
+    let message = data.choices?.[0]?.message?.content?.trim() || buildFallback(product_name, business_name, seller_slug, variant_label, variant_price, currency, quantity)
+
+    // Ensure routing tag is present — webhook uses /klovi\/([a-z0-9-]+)/i to extract seller slug
+    if (seller_slug && !message.includes(`klovi/${seller_slug}`)) {
+      // Insert routing tag at the end of the first line
+      const lines = message.split('\n')
+      lines[0] = lines[0].replace(/\.?\s*$/, '') + ` from *${business_name}* (klovi/${seller_slug}).`
+      message = lines.join('\n')
+    }
 
     messageCache.set(cacheKey, message)
     return NextResponse.json({ message })
   } catch {
-    const fallback = buildFallback(product_name, variant_label, variant_price, currency, quantity)
+    const fallback = buildFallback(product_name, business_name, seller_slug, variant_label, variant_price, currency, quantity)
     return NextResponse.json({ message: fallback })
   }
 }
 
 function buildFallback(
   productName: string,
+  businessName?: string,
+  sellerSlug?: string,
   variantLabel?: string,
   variantPrice?: number,
   currency?: string,
@@ -159,5 +173,7 @@ function buildFallback(
   const qtyStr = quantity && quantity > 1 ? `${quantity}x ` : ''
   const varStr = variantLabel ? ` — ${variantLabel}` : ''
   const priceStr = variantPrice ? ` (${sym}${variantPrice})` : ''
-  return `Hi! I'd like to order ${qtyStr}${productName}${varStr}${priceStr}.\nCan you share availability and details? 🙏`
+  const fromStr = businessName ? ` from *${businessName}*` : ''
+  const routeStr = sellerSlug ? ` (klovi/${sellerSlug})` : ''
+  return `Hi! I'd like to order ${qtyStr}*${productName}*${varStr}${priceStr}${fromStr}${routeStr}.\nCan you share availability and details? 🙏`
 }

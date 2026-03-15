@@ -6,25 +6,11 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { t } from '@/lib/i18n';
 
-const navItemDefs = [
+const navItems = [
   { href: '/dashboard', key: 'nav.home', icon: '🏠' },
   { href: '/dashboard/orders', key: 'nav.orders', icon: '📋' },
   { href: '/dashboard/inbox', key: 'nav.inbox', icon: '💬' },
-  { href: '/dashboard/products', key: 'nav.products', icon: '📦' },
-  { href: '/dashboard/customers', key: 'nav.customers', icon: '👥' },
-  { href: '/dashboard/broadcasts', key: 'nav.broadcasts', icon: '📢' },
-  { href: '/dashboard/posts', key: 'nav.posts', icon: '🎨' },
-  { href: '/dashboard/reviews', key: 'nav.reviews', icon: '⭐' },
   { href: '/dashboard/settings', key: 'nav.settings', icon: '⚙️' },
-];
-
-// Bottom tab bar shows top 5 items on mobile
-const mobileNavItemDefs = [
-  { href: '/dashboard', key: 'nav.home', icon: '🏠' },
-  { href: '/dashboard/orders', key: 'nav.orders', icon: '📋' },
-  { href: '/dashboard/inbox', key: 'nav.inbox', icon: '💬' },
-  { href: '/dashboard/products', key: 'nav.products', icon: '📦' },
-  { href: '/dashboard/settings', key: 'nav.more', icon: '⚙️', isMore: true },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -33,7 +19,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sellerName, setSellerName] = useState('');
   const [language, setLanguage] = useState('en');
   const [loading, setLoading] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -69,10 +54,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     checkAuth();
   }, [router]);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -99,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 py-4 overflow-y-auto">
-          {navItemDefs.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href ||
               (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
@@ -138,42 +119,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
       </header>
 
-      {/* Mobile slide-up menu (from More tab) */}
-      {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileMenuOpen(false)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl pb-6 pt-3 max-h-[70vh] overflow-y-auto">
-            <div className="w-10 h-1 bg-warm-gray/30 rounded-full mx-auto mb-4" />
-            <nav className="px-2">
-              {navItemDefs.map((item) => {
-                const isActive = pathname === item.href ||
-                  (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-base font-medium ${
-                      isActive ? 'bg-amber/10 text-ink' : 'text-warm-gray'
-                    }`}
-                  >
-                    <span className="text-xl">{item.icon}</span>
-                    {t(item.key, language)}
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="px-6 pt-3 mt-2 border-t border-[#e7e0d4]">
-              <button
-                onClick={handleLogout}
-                className="w-full text-left py-3 text-base text-rose font-medium"
-              >
-                {t('nav.logout', language)}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main content */}
       <main className="md:ml-64 pt-14 md:pt-0 pb-20 md:pb-0">
         <div className="max-w-6xl mx-auto px-4 py-5 md:p-8">
@@ -181,27 +126,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </main>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom tab bar — 4 items: Home, Orders, Inbox, Settings */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#e7e0d4] z-30 flex items-center justify-around px-1 py-1.5 safe-area-pb">
-        {mobileNavItemDefs.map((item) => {
-          const isMore = 'isMore' in item && item.isMore;
-          const isActive = !isMore && (
-            pathname === item.href ||
-            (item.href !== '/dashboard' && pathname.startsWith(item.href))
-          );
-
-          if (isMore) {
-            return (
-              <button
-                key="more"
-                onClick={() => setMobileMenuOpen(true)}
-                className="flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-[56px] text-warm-gray"
-              >
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-[10px] font-medium">{t(item.key, language)}</span>
-              </button>
-            );
-          }
+        {navItems.map((item) => {
+          const isActive = pathname === item.href ||
+            (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
           return (
             <Link

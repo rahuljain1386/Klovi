@@ -1599,3 +1599,20 @@ export const BUSINESS_TYPE_TO_CATEGORIES: Record<string, string[]> = {
   'Fitness': ['Nutrition & Weight Coaching'],
   'Stitching': ["Women's Stitching"],
 };
+
+// 5 launch niches — laser focused
+export const NICHE_TO_CATEGORIES: Record<string, string[]> = {
+  snacks: ['Homemade Snacks', 'Healthy Snacks', 'Masala & Spice Mixes', 'Pickles & Achar', 'Homemade Sweets'],
+  bakery: ['Home Bakery', 'Homemade Chocolates'],
+  coaching: ['Nutrition & Weight Coaching', 'Home Tutoring & Classes', "Women's Stitching"],
+  spiritual_healing: ['Healing & Spiritual'],
+  other: [],
+};
+
+export const NICHE_OPTIONS = [
+  { id: 'snacks', label: 'Snacks & Food', emoji: '🥨', desc: 'Namkeen, sweets, pickles, healthy snacks' },
+  { id: 'bakery', label: 'Bakery', emoji: '🧁', desc: 'Cakes, cookies, brownies, chocolates' },
+  { id: 'coaching', label: 'Coaching & Services', emoji: '📚', desc: 'Tutoring, nutrition, stitching, fitness' },
+  { id: 'spiritual_healing', label: 'Spiritual & Healing', emoji: '🔮', desc: 'Reiki, astrology, crystals, meditation' },
+  { id: 'other', label: 'Something Else', emoji: '✨', desc: 'Tell us what you do' },
+] as const;

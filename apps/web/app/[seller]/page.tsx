@@ -122,7 +122,7 @@ export default async function SellerStorefront({ params }: Props) {
   // Contact bar also uses Klovi number (bot handles everything)
   const contactWaNumber = KLOVI_WA_NUMBER;
   const contactWaLink = contactWaNumber
-    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw your shop on Klovi (${seller.slug}). 🙏`)}`
+    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw your shop on Klovi (klovi/${seller.slug}). 🙏`)}`
     : '';
   // Order flow WhatsApp link (sticky bar + storefront)
   const waLink = hasWa
