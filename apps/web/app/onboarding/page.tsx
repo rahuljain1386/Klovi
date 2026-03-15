@@ -168,8 +168,9 @@ export default function OnboardingPage() {
           setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
       }
-      // Pre-fill owner name from Google account (only for brand new empty field)
-      if (user.user_metadata?.full_name && !wasEdited('ownerName')) {
+      // Pre-fill owner name ONLY from Google OAuth (real name, not email username)
+      const isGoogle = user.app_metadata?.provider === 'google';
+      if (isGoogle && user.user_metadata?.full_name && !wasEdited('ownerName')) {
         setOwnerName(prev => prev || user.user_metadata.full_name);
       }
     })();
