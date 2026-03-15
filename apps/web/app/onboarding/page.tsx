@@ -292,22 +292,20 @@ export default function OnboardingPage() {
     setSaving(true);
 
     try {
-      // Generate clean slug
-      let newSlug = slug;
-      if (!slug || (slug.includes('-') && slug.split('-').pop()!.length > 6)) {
-        try {
-          const slugRes = await fetch('/api/onboarding/generate-slug', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ businessName, city }),
-          });
-          if (slugRes.ok) {
-            const { slug: generated } = await slugRes.json();
-            newSlug = generated;
-          }
-        } catch {}
-      }
-      if (!newSlug) newSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      // Always generate a fresh slug from the current business name
+      let newSlug = '';
+      try {
+        const slugRes = await fetch('/api/onboarding/generate-slug', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessName, city }),
+        });
+        if (slugRes.ok) {
+          const { slug: generated } = await slugRes.json();
+          newSlug = generated;
+        }
+      } catch {}
+      if (!newSlug) newSlug = businessName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
       const updates: Record<string, unknown> = {
         business_name: businessName.trim(),
