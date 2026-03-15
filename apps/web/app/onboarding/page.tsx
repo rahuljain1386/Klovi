@@ -815,57 +815,102 @@ export default function OnboardingPage() {
         {step === 'live' && (
           <div className="px-4 pb-20 space-y-6">
             {/* Celebration */}
-            <div className="text-center pt-8 pb-4">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="font-display text-2xl font-black text-ink mb-2">Your shop is live!</h2>
-              <p className="text-warm-gray text-sm">
-                Customers can now find you and order via WhatsApp
-              </p>
+            <div className="text-center pt-6 pb-2">
+              <div className="text-5xl mb-3">🎉</div>
+              <h2 className="font-display text-2xl font-black text-ink mb-1">Your shop is live!</h2>
+              <p className="text-warm-gray text-sm">Share your launch post & start getting orders</p>
+            </div>
+
+            {/* Launch Post Flyer */}
+            <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
+              <p className="text-xs text-amber font-bold tracking-wider px-4 pt-4 pb-2">YOUR LAUNCH POST</p>
+              <div className="px-4 pb-3">
+                <img
+                  src={`/api/launch-post?slug=${slug}`}
+                  alt="Launch flyer"
+                  className="w-full rounded-xl shadow-md"
+                  loading="eager"
+                />
+              </div>
+
+              {/* Share text preview */}
+              <div className="mx-4 mb-3 bg-cream rounded-xl p-3">
+                <p className="text-sm text-ink whitespace-pre-line" id="share-text">
+                  {`🎉 Exciting news! ${businessName} is NOW LIVE!\n\n${aiProfile?.tagline ? `✨ ${aiProfile.tagline}\n\n` : ''}${Array.from(selectedProducts).slice(0, 4).map(p => `• ${p}`).join('\n')}\n\n📱 Check menu & order:\nhttps://kloviapp.com/${slug}\n\n💬 Or WhatsApp us directly!\nwa.me/918854054503?text=${encodeURIComponent(`Hi! I'd like to order from ${businessName} (klovi/${slug})`)}`}
+                </p>
+              </div>
+
+              {/* Share buttons */}
+              <div className="px-4 pb-4 space-y-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`🎉 Exciting news! ${businessName} is NOW LIVE!\n\n${aiProfile?.tagline ? `✨ ${aiProfile.tagline}\n\n` : ''}${Array.from(selectedProducts).slice(0, 4).map(p => `• ${p}`).join('\n')}\n\n📱 Check menu & order:\nhttps://kloviapp.com/${slug}\n\n💬 Or WhatsApp us directly!`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3.5 bg-green text-white rounded-xl font-semibold text-base flex items-center justify-center gap-2 hover:bg-green/90 transition-colors min-h-[52px]"
+                >
+                  💬 Share on WhatsApp
+                </a>
+                <div className="flex gap-2">
+                  <a
+                    href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://kloviapp.com/${slug}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-3 bg-blue/10 text-blue rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 hover:bg-blue/20 transition-colors"
+                  >
+                    📘 Facebook
+                  </a>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(
+                        `🎉 ${businessName} is NOW LIVE!\n\n📱 Order: https://kloviapp.com/${slug}`
+                      );
+                    }}
+                    className="flex-1 py-3 bg-cream text-ink rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 border border-border hover:bg-amber/10 transition-colors"
+                  >
+                    📋 Copy Text
+                  </button>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      const imgRes = await fetch(`/api/launch-post?slug=${slug}`);
+                      const blob = await imgRes.blob();
+                      const file = new File([blob], `${slug}-launch.png`, { type: 'image/png' });
+                      if (navigator.share) {
+                        await navigator.share({
+                          title: `${businessName} is LIVE!`,
+                          text: `Check out ${businessName} on Klovi! Order: https://kloviapp.com/${slug}`,
+                          files: [file],
+                        });
+                      } else {
+                        // Fallback: download the image
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = `${slug}-launch.png`;
+                        a.click(); URL.revokeObjectURL(url);
+                      }
+                    } catch {}
+                  }}
+                  className="w-full py-3 text-amber text-sm font-semibold hover:text-amber/80 transition-colors"
+                >
+                  📥 Download Flyer Image
+                </button>
+              </div>
             </div>
 
             {/* Shop URL */}
-            <div className="bg-white rounded-2xl border border-border p-5 text-center">
-              <p className="text-xs text-warm-gray mb-2">Your shop link</p>
-              <p className="font-display text-lg font-black text-amber break-all">
+            <div className="bg-white rounded-2xl border border-border p-4 text-center">
+              <p className="text-xs text-warm-gray mb-1">Your shop link</p>
+              <p className="font-display text-lg font-black text-amber break-all mb-3">
                 kloviapp.com/{slug}
               </p>
-              <div className="flex gap-2 mt-4 justify-center">
-                <button
-                  onClick={() => {
-                    navigator.clipboard?.writeText(`https://kloviapp.com/${slug}`);
-                  }}
-                  className="px-5 py-2.5 bg-cream text-ink rounded-xl text-sm font-medium border border-border hover:bg-amber/10 transition-colors"
-                >
-                  Copy Link
-                </button>
-                <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`Check out my shop on Klovi! 🛍️\nhttps://kloviapp.com/${slug}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-5 py-2.5 bg-green text-white rounded-xl text-sm font-medium hover:bg-green/90 transition-colors"
-                >
-                  Share on WhatsApp
-                </a>
-              </div>
+              <button
+                onClick={() => navigator.clipboard?.writeText(`https://kloviapp.com/${slug}`)}
+                className="px-5 py-2 bg-cream text-ink rounded-xl text-sm font-medium border border-border hover:bg-amber/10 transition-colors"
+              >
+                Copy Link
+              </button>
             </div>
-
-            {/* AI Profile summary */}
-            {aiProfile && (
-              <div className="bg-white rounded-2xl border border-border p-5">
-                <p className="text-xs text-amber font-bold tracking-wider mb-2">AI CREATED FOR YOU</p>
-                {aiProfile.tagline && (
-                  <p className="text-ink font-medium mb-1">"{aiProfile.tagline}"</p>
-                )}
-                {aiProfile.description && (
-                  <p className="text-warm-gray text-sm mb-2">{aiProfile.description}</p>
-                )}
-                {aiProfile.topSellingTip && (
-                  <p className="text-warm-gray text-xs italic border-t border-border pt-2 mt-2">
-                    💡 {aiProfile.topSellingTip}
-                  </p>
-                )}
-              </div>
-            )}
 
             {/* What happens next */}
             <div className="bg-white rounded-2xl border border-border p-5">
