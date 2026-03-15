@@ -100,6 +100,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('about');
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const [sellerId, setSellerId] = useState('');
   const [slug, setSlug] = useState('');
 
@@ -134,7 +135,8 @@ export default function OnboardingPage() {
   useEffect(() => {
     (async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr) { setError(`Init auth error: ${authErr.message}`); }
       if (!user) { router.push('/auth/login'); return; }
 
       const { data: sellers } = await supabase
@@ -210,12 +212,16 @@ export default function OnboardingPage() {
 
     (async () => {
       const supabase = createClient();
-      const { data: dbProducts } = await supabase
+      const { data: dbProducts, error: catalogErr } = await supabase
         .from('catalog_products')
         .select('*')
         .in('parent_category', categories)
         .eq('enabled', true)
         .order('sort_order');
+
+      if (catalogErr) {
+        setError(`Catalog load error: ${catalogErr.message}`);
+      }
 
       if (dbProducts && dbProducts.length > 0) {
         setCatalogProducts(dbProducts.map((p: any) => ({
@@ -270,66 +276,98 @@ export default function OnboardingPage() {
   const saveAbout = async () => {
     if (!businessName.trim()) return;
     if (!niche) return;
+    setError('');
     setSaving(true);
 
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push('/auth/login'); return; }
+    try {
+      const supabase = createClient();
+      const { data: { user }, error: authErr } = await supabase.auth.getUser();
+      if (authErr || !user) {
+        setError(`Auth error: ${authErr?.message || 'Not logged in'}`);
+        setSaving(false);
+        router.push('/auth/login');
+        return;
+      }
 
-    // Generate clean slug
-    let newSlug = slug;
-    if (!slug || slug.includes('-') && slug.split('-').pop()!.length > 6) {
-      // Slug looks auto-generated, get a clean one
-      try {
-        const slugRes = await fetch('/api/onboarding/generate-slug', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ businessName, city }),
-        });
-        if (slugRes.ok) {
-          const { slug: generated } = await slugRes.json();
-          newSlug = generated;
+      // Generate clean slug
+      let newSlug = slug;
+      if (!slug || slug.includes('-') && slug.split('-').pop()!.length > 6) {
+        try {
+          const slugRes = await fetch('/api/onboarding/generate-slug', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ businessName, city }),
+          });
+          if (slugRes.ok) {
+            const { slug: generated } = await slugRes.json();
+            newSlug = generated;
+          } else {
+            const slugErr = await slugRes.text();
+            console.error('[Onboarding] Slug generation failed:', slugErr);
+          }
+        } catch (e: any) {
+          console.error('[Onboarding] Slug fetch error:', e.message);
         }
-      } catch {}
+      }
+      if (!newSlug) newSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+      const updates: Record<string, unknown> = {
+        business_name: businessName.trim(),
+        owner_name: ownerName.trim() || null,
+        gender: gender || null,
+        niche,
+        slug: newSlug,
+        category: niche === 'snacks' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
+      };
+
+      if (sellerId) {
+        const { error: updateErr } = await supabase.from('sellers').update(updates).eq('id', sellerId);
+        if (updateErr) {
+          setError(`Update seller failed: ${updateErr.message}`);
+          setSaving(false);
+          return;
+        }
+      } else {
+        const { data: newSeller, error: insertErr } = await supabase.from('sellers').insert({
+          user_id: user.id,
+          ...updates,
+          status: 'onboarding',
+          plan: 'free',
+          country: countryCode === 'IN' ? 'india' : 'usa',
+          language: 'en',
+          city: city || '',
+          phone: '',
+        }).select('id').single();
+
+        if (insertErr) {
+          setError(`Create seller failed: ${insertErr.message}`);
+          setSaving(false);
+          return;
+        }
+        if (!newSeller) {
+          setError('Seller created but no ID returned');
+          setSaving(false);
+          return;
+        }
+        setSellerId(newSeller.id);
+      }
+
+      setSlug(newSlug);
+      setSaving(false);
+      setStep('products');
+    } catch (e: any) {
+      setError(`Unexpected error: ${e.message}`);
+      setSaving(false);
     }
-    if (!newSlug) newSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-
-    const updates: Record<string, unknown> = {
-      business_name: businessName.trim(),
-      owner_name: ownerName.trim() || null,
-      gender: gender || null,
-      niche,
-      slug: newSlug,
-      category: niche === 'snacks' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
-    };
-
-    if (sellerId) {
-      await supabase.from('sellers').update(updates).eq('id', sellerId);
-    } else {
-      const { data: newSeller } = await supabase.from('sellers').insert({
-        user_id: user.id,
-        ...updates,
-        status: 'onboarding',
-        plan: 'free',
-        country: countryCode === 'IN' ? 'india' : 'usa',
-        language: 'en',
-        city: city || '',
-        phone: '',
-      }).select('id').single();
-
-      if (newSeller) setSellerId(newSeller.id);
-    }
-
-    setSlug(newSlug);
-    setSaving(false);
-    setStep('products');
   };
 
   // ─── Screen 2: Save products via server API (bypasses RLS) ──────────────
   const saveProducts = async () => {
     if (selectedProducts.size === 0) return;
+    setError('');
+
     if (!sellerId) {
-      console.error('[Onboarding] Cannot save products — sellerId is empty');
+      setError('ERROR: sellerId is empty — go back to step 1 and try again');
       return;
     }
     setSaving(true);
@@ -358,12 +396,21 @@ export default function OnboardingPage() {
       });
       const result = await res.json();
       if (!res.ok) {
-        console.error('[Onboarding] Product save failed:', result);
-      } else {
-        console.log('[Onboarding] Products saved:', result.count);
+        setError(`Product save failed (${res.status}): ${result.error || JSON.stringify(result)}`);
+        setSaving(false);
+        return;
       }
-    } catch (err) {
-      console.error('[Onboarding] Product save request failed:', err);
+      if (!result.count || result.count === 0) {
+        setError(`Products API returned 0 saved. Response: ${JSON.stringify(result)}`);
+        setSaving(false);
+        return;
+      }
+      // Success — show count briefly
+      setError('');
+    } catch (err: any) {
+      setError(`Product save request failed: ${err.message}`);
+      setSaving(false);
+      return;
     }
 
     setSaving(false);
@@ -376,49 +423,57 @@ export default function OnboardingPage() {
   // ─── Screen 3: Save business details & go live ──────────────────────────
   const saveBusiness = async () => {
     if (!whatsapp.trim()) return;
+    setError('');
     setSaving(true);
 
-    const supabase = createClient();
-    const cleanedPhone = whatsapp.trim().replace(/[\s()-]/g, '');
+    try {
+      const supabase = createClient();
+      const cleanedPhone = whatsapp.trim().replace(/[\s()-]/g, '');
 
-    const updates: Record<string, unknown> = {
-      status: 'active',
-      city: addressDetails?.city || city,
-      address_line1: addressDetails?.addressLine1 || address,
-      address_city: addressDetails?.city || city,
-      address_state: addressDetails?.state || '',
-      address_zip: addressDetails?.zip || '',
-      address_country_code: addressDetails?.countryCode || countryCode,
-      address_lat: addressDetails?.lat || null,
-      address_lng: addressDetails?.lng || null,
-      google_place_id: null,
-      delivery_type: deliveryType,
-      country: (addressDetails?.countryCode || countryCode) === 'IN' ? 'india' : 'usa',
-      whatsapp_number: cleanedPhone,
-      phone: cleanedPhone,
-      whatsapp_path: 'own_number',
-      cod_enabled: payments.includes('cash'),
-      upi_id: payments.includes('upi') ? '' : null,
-      fulfillment_modes: deliveryType === 'pickup_only' ? ['pickup'] : deliveryType === 'local_delivery' ? ['pickup', 'delivery'] : ['delivery'],
-      pickup_address: address || null,
-      onboarding_completed_at: new Date().toISOString(),
-    };
+      const updates: Record<string, unknown> = {
+        status: 'active',
+        city: addressDetails?.city || city,
+        address_line1: addressDetails?.addressLine1 || address,
+        address_city: addressDetails?.city || city,
+        address_state: addressDetails?.state || '',
+        address_zip: addressDetails?.zip || '',
+        address_country_code: addressDetails?.countryCode || countryCode,
+        address_lat: addressDetails?.lat || null,
+        address_lng: addressDetails?.lng || null,
+        google_place_id: null,
+        delivery_type: deliveryType,
+        country: (addressDetails?.countryCode || countryCode) === 'IN' ? 'india' : 'usa',
+        whatsapp_number: cleanedPhone,
+        phone: cleanedPhone,
+        whatsapp_path: 'own_number',
+        cod_enabled: payments.includes('cash'),
+        upi_id: payments.includes('upi') ? '' : null,
+        fulfillment_modes: deliveryType === 'pickup_only' ? ['pickup'] : deliveryType === 'local_delivery' ? ['pickup', 'delivery'] : ['delivery'],
+        pickup_address: address || null,
+        onboarding_completed_at: new Date().toISOString(),
+      };
 
-    // Apply AI profile if generated
-    if (aiProfile) {
-      if (aiProfile.tagline) updates.tagline = aiProfile.tagline;
-      if (aiProfile.tagline) updates.ai_tagline = aiProfile.tagline;
-      if (aiProfile.description) updates.description = aiProfile.description;
-      if (aiProfile.launchOffer) updates.launch_offer = aiProfile.launchOffer;
+      // Apply AI profile if generated
+      if (aiProfile) {
+        if (aiProfile.tagline) updates.tagline = aiProfile.tagline;
+        if (aiProfile.tagline) updates.ai_tagline = aiProfile.tagline;
+        if (aiProfile.description) updates.description = aiProfile.description;
+        if (aiProfile.launchOffer) updates.launch_offer = aiProfile.launchOffer;
+      }
+
+      const { error: updateError } = await supabase.from('sellers').update(updates).eq('id', sellerId);
+      if (updateError) {
+        setError(`Go Live failed: ${updateError.message}`);
+        setSaving(false);
+        return;
+      }
+
+      setSaving(false);
+      setStep('live');
+    } catch (e: any) {
+      setError(`Go Live unexpected error: ${e.message}`);
+      setSaving(false);
     }
-
-    const { error: updateError } = await supabase.from('sellers').update(updates).eq('id', sellerId);
-    if (updateError) {
-      console.error('[Onboarding] Seller update error:', updateError.message);
-    }
-
-    setSaving(false);
-    setStep('live');
   };
 
   // ─── Filtered catalog ──────────────────────────────────────────────────
@@ -452,6 +507,20 @@ export default function OnboardingPage() {
             />
           </div>
         </div>
+
+        {/* Error banner — visible on screen for debugging */}
+        {error && (
+          <div className="mx-4 mb-4 bg-red-50 border border-red-300 rounded-xl p-3">
+            <div className="flex items-start gap-2">
+              <span className="text-red-500 text-lg flex-shrink-0">!</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-red-700 text-sm font-medium break-words">{error}</p>
+                <p className="text-red-400 text-xs mt-1">sellerId: {sellerId || 'EMPTY'} | step: {step} | slug: {slug || 'EMPTY'}</p>
+              </div>
+              <button onClick={() => setError('')} className="text-red-400 text-xs flex-shrink-0">dismiss</button>
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════════ */}
         {/* SCREEN 1 — About You                                          */}
