@@ -157,38 +157,20 @@ export default function OnboardingPage() {
       }
 
       if (seller) {
+        // Only set IDs and location — NEVER overwrite editable text fields
+        // User is on onboarding page = they want to enter fresh data
         setSellerId(seller.id);
         setSlug(seller.slug);
 
-        // Only pre-fill from DB if seller has COMPLETED onboarding (status=active)
-        // If still in onboarding status, let user start fresh
-        const completed = seller.status === 'active';
-
-        if (completed) {
-          if (seller.business_name) setBusinessName(seller.business_name);
-          if (seller.owner_name) setOwnerName(seller.owner_name);
-          if (seller.gender) setGender(seller.gender);
-          if (seller.niche) setNiche(seller.niche as Niche);
-        }
-
-        // Always pre-fill location/phone (useful context)
-        if (seller.city) setCity(seller.city);
-        if (seller.address_city) setCity(seller.address_city);
+        // Country/currency detection (non-editable context)
         if (seller.address_country_code) {
           setCountryCode(seller.address_country_code);
           setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
-        if (seller.whatsapp_number || seller.phone) {
-          setWhatsapp(seller.whatsapp_number || seller.phone || '');
-        }
-
-        // Pre-fill name from Google if nothing in DB
-        if (!seller.owner_name && user.user_metadata?.full_name) {
-          setOwnerName(user.user_metadata.full_name);
-        }
-      } else {
-        // New user — pre-fill name from Google
-        if (user.user_metadata?.full_name) setOwnerName(user.user_metadata.full_name);
+      }
+      // Pre-fill owner name from Google account (only for brand new empty field)
+      if (user.user_metadata?.full_name && !wasEdited('ownerName')) {
+        setOwnerName(prev => prev || user.user_metadata.full_name);
       }
     })();
 
