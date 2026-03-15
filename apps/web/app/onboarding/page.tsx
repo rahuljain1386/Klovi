@@ -189,12 +189,16 @@ export default function OnboardingPage() {
 
   // ─── Load catalog from Supabase DB (has admin DALL-E images) ─────────
   useEffect(() => {
-    if (!niche || niche === 'other') { setCatalogProducts([]); return; }
+    // Clear immediately — don't wait for async
+    setSelectedProducts(new Set());
+    setCatalogFilter(null);
+    setCatalogProducts([]);
+
+    if (!niche || niche === 'other') return;
     const categories = NICHE_TO_CATEGORIES[niche] || [];
 
     (async () => {
       const supabase = createClient();
-      // Load from DB — catalog_products has image_url from admin DALL-E batch run
       const { data: dbProducts } = await supabase
         .from('catalog_products')
         .select('*')
@@ -216,16 +220,12 @@ export default function OnboardingPage() {
           priceMax: p.price_max,
           dietary: p.dietary || [],
           pexelsQuery: p.pexels_query,
-          imageUrl: p.image_url, // Admin-generated DALL-E image
+          imageUrl: p.image_url,
         })));
       } else {
-        // Fallback to static file if DB is empty
         const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
         setCatalogProducts(staticProducts);
       }
-
-      setCatalogFilter(null);
-      setSelectedProducts(new Set());
     })();
   }, [niche]);
 
