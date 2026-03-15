@@ -187,6 +187,9 @@ export async function GET(request: Request) {
     {
       width: 1080,
       height: 1080,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      },
     }
   );
 }

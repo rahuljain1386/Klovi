@@ -263,7 +263,7 @@ export default function OnboardingPage() {
     setAiLoading(false);
   }, [businessName, niche, city, countryCode, selectedProducts, ownerName, gender, addressDetails]);
 
-  // ─── Screen 1: Save About You ───────────────────────────────────────────
+  // ─── Screen 1: Save About You (via server API to bypass RLS) ────────────
   const saveAbout = async () => {
     if (!businessName.trim()) return;
     if (!niche) return;
@@ -271,18 +271,9 @@ export default function OnboardingPage() {
     setSaving(true);
 
     try {
-      const supabase = createClient();
-      const { data: { user }, error: authErr } = await supabase.auth.getUser();
-      if (authErr || !user) {
-        setError(`Auth error: ${authErr?.message || 'Not logged in'}`);
-        setSaving(false);
-        router.push('/auth/login');
-        return;
-      }
-
       // Generate clean slug
       let newSlug = slug;
-      if (!slug || slug.includes('-') && slug.split('-').pop()!.length > 6) {
+      if (!slug || (slug.includes('-') && slug.split('-').pop()!.length > 6)) {
         try {
           const slugRes = await fetch('/api/onboarding/generate-slug', {
             method: 'POST',
@@ -292,13 +283,8 @@ export default function OnboardingPage() {
           if (slugRes.ok) {
             const { slug: generated } = await slugRes.json();
             newSlug = generated;
-          } else {
-            const slugErr = await slugRes.text();
-            console.error('[Onboarding] Slug generation failed:', slugErr);
           }
-        } catch (e: any) {
-          console.error('[Onboarding] Slug fetch error:', e.message);
-        }
+        } catch {}
       }
       if (!newSlug) newSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -311,37 +297,34 @@ export default function OnboardingPage() {
         category: niche === 'snacks' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
       };
 
-      if (sellerId) {
-        const { error: updateErr } = await supabase.from('sellers').update(updates).eq('id', sellerId);
-        if (updateErr) {
-          setError(`Update seller failed: ${updateErr.message}`);
-          setSaving(false);
-          return;
-        }
-      } else {
-        const { data: newSeller, error: insertErr } = await supabase.from('sellers').insert({
-          user_id: user.id,
-          ...updates,
+      // New seller — add required fields
+      if (!sellerId) {
+        Object.assign(updates, {
           status: 'onboarding',
           plan: 'free',
           country: countryCode === 'IN' ? 'india' : 'usa',
           language: 'en',
           city: city || '',
           phone: '',
-        }).select('id').single();
-
-        if (insertErr) {
-          setError(`Create seller failed: ${insertErr.message}`);
-          setSaving(false);
-          return;
-        }
-        if (!newSeller) {
-          setError('Seller created but no ID returned');
-          setSaving(false);
-          return;
-        }
-        setSellerId(newSeller.id);
+        });
       }
+
+      const res = await fetch('/api/onboarding/save-seller', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: sellerId || null, updates }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(`Save seller failed (${res.status}): ${result.error}`);
+        setSaving(false);
+        return;
+      }
+
+      // Update local state with server response
+      if (result.seller?.id && !sellerId) setSellerId(result.seller.id);
+      if (result.seller?.slug) newSlug = result.seller.slug;
 
       setSlug(newSlug);
       setSaving(false);
@@ -411,14 +394,13 @@ export default function OnboardingPage() {
     generateAiProfile();
   };
 
-  // ─── Screen 3: Save business details & go live ──────────────────────────
+  // ─── Screen 3: Save business details & go live (via server API) ─────────
   const saveBusiness = async () => {
     if (!whatsapp.trim()) return;
     setError('');
     setSaving(true);
 
     try {
-      const supabase = createClient();
       const cleanedPhone = whatsapp.trim().replace(/[\s()-]/g, '');
 
       const updates: Record<string, unknown> = {
@@ -452,9 +434,15 @@ export default function OnboardingPage() {
         if (aiProfile.launchOffer) updates.launch_offer = aiProfile.launchOffer;
       }
 
-      const { error: updateError } = await supabase.from('sellers').update(updates).eq('id', sellerId);
-      if (updateError) {
-        setError(`Go Live failed: ${updateError.message}`);
+      const res = await fetch('/api/onboarding/save-seller', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId, updates }),
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(`Go Live failed (${res.status}): ${result.error}`);
         setSaving(false);
         return;
       }
@@ -918,7 +906,7 @@ export default function OnboardingPage() {
               <p className="text-xs text-amber font-bold tracking-wider px-4 pt-4 pb-2">YOUR LAUNCH POST</p>
               <div className="px-4 pb-3">
                 <img
-                  src={`/api/launch-post?slug=${slug}`}
+                  src={`/api/launch-post?slug=${slug}&t=${Date.now()}`}
                   alt="Launch flyer"
                   className="w-full rounded-xl shadow-md"
                   loading="eager"
@@ -965,7 +953,7 @@ export default function OnboardingPage() {
                 <button
                   onClick={async () => {
                     try {
-                      const imgRes = await fetch(`/api/launch-post?slug=${slug}`);
+                      const imgRes = await fetch(`/api/launch-post?slug=${slug}&t=${Date.now()}`);
                       const blob = await imgRes.blob();
                       const file = new File([blob], `${slug}-launch.png`, { type: 'image/png' });
                       if (navigator.share) {
