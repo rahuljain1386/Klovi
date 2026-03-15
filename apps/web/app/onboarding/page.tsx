@@ -157,18 +157,38 @@ export default function OnboardingPage() {
       }
 
       if (seller) {
-        // Only set IDs and location — NEVER overwrite editable text fields
-        // User is on onboarding page = they want to enter fresh data
         setSellerId(seller.id);
         setSlug(seller.slug);
 
-        // Country/currency detection (non-editable context)
+        // Pre-fill from DB ONLY if seller is still in onboarding (data is fresh from signup)
+        // If seller is already active, they're re-doing onboarding — start fresh
+        if (seller.status === 'onboarding') {
+          if (seller.business_name) setBusinessName(seller.business_name);
+          if (seller.owner_name) setOwnerName(seller.owner_name);
+          if (seller.gender) setGender(seller.gender);
+          if (seller.niche) setNiche(seller.niche as Niche);
+          if (seller.whatsapp_number || seller.phone) {
+            setWhatsapp(seller.whatsapp_number || seller.phone || '');
+          }
+        }
+
+        // Country/currency always (non-editable context)
+        if (seller.city) setCity(seller.city);
+        if (seller.address_city) setCity(seller.address_city);
         if (seller.address_country_code) {
           setCountryCode(seller.address_country_code);
           setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
       }
-      // Pre-fill owner name ONLY from Google OAuth (real name, not email username)
+
+      // Also check localStorage (set during Google signup flow)
+      const pendingBiz = typeof window !== 'undefined' ? localStorage.getItem('klovi_pending_business') : null;
+      if (pendingBiz && !businessName) {
+        setBusinessName(pendingBiz);
+        localStorage.removeItem('klovi_pending_business');
+      }
+
+      // Pre-fill owner name from Google OAuth only (real name, not email username)
       const isGoogle = user.app_metadata?.provider === 'google';
       if (isGoogle && user.user_metadata?.full_name && !wasEdited('ownerName')) {
         setOwnerName(prev => prev || user.user_metadata.full_name);

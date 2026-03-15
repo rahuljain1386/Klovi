@@ -88,6 +88,10 @@ export default function SignupPage() {
     if (authData.user) {
       await createSellerProfile(authData.user.id);
     }
+    // Store business name for onboarding (in case DB insert failed due to RLS)
+    if (businessName) {
+      localStorage.setItem('klovi_pending_business', businessName);
+    }
     // If coming from test-idea flow, redirect back there
     const pendingIdea = localStorage.getItem('klovi_test_idea');
     router.push(pendingIdea ? '/test-idea' : '/onboarding');
