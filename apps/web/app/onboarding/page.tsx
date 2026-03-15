@@ -925,12 +925,26 @@ export default function OnboardingPage() {
             {/* Launch Post Flyer */}
             <div className="bg-white rounded-2xl border border-border overflow-hidden shadow-sm">
               <p className="text-xs text-amber font-bold tracking-wider px-4 pt-4 pb-2">YOUR LAUNCH POST</p>
-              <div className="px-4 pb-3">
+              <div className="px-4 pb-3 relative">
+                {/* Skeleton loader while image loads */}
+                <div className="aspect-square rounded-xl bg-gradient-to-br from-amber/10 to-cream flex items-center justify-center" id="flyer-skeleton">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-3 border-amber border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-warm-gray text-xs">Creating your flyer...</p>
+                  </div>
+                </div>
                 <img
                   src={`/api/launch-post?slug=${slug}&t=${Date.now()}`}
                   alt="Launch flyer"
                   className="w-full rounded-xl shadow-md"
                   loading="eager"
+                  onLoad={(e) => {
+                    // Hide skeleton when image loads
+                    const skeleton = document.getElementById('flyer-skeleton');
+                    if (skeleton) skeleton.style.display = 'none';
+                    (e.target as HTMLImageElement).style.display = 'block';
+                  }}
+                  style={{ display: 'none' }}
                 />
               </div>
 

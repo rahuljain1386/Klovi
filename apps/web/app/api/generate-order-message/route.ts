@@ -35,19 +35,17 @@ export async function POST(request: Request) {
   }
 
   const sym = currency === 'INR' ? '₹' : '$'
-
-  // Build routing tag that the webhook uses to identify the seller
-  const routingTag = seller_slug ? ` (klovi/${seller_slug})` : ''
+  const menuUrl = seller_slug ? `kloviapp.com/${seller_slug}` : ''
 
   const systemPrompt = `You write WhatsApp pre-fill messages for home business orders in India and USA. The customer is sending this to the seller.
 
 Rules:
-- Line 1: "Hi! I'd like to order *[Product]* — [Variant] ([Currency][Price]) from *[Business Name]*${routingTag}"
+- Line 1: "Hi! I'd like to order *[Product]* — [Variant] ([Currency][Price]) from *[Business Name]*."
   If quantity > 1: "...order [Qty]x *[Product]*..."
   If no variant: just product name and price
-  IMPORTANT: Always include the business name and the routing tag "${routingTag}" exactly as shown at the end of line 1
-- Lines 2-4: 2-3 short follow-up questions for THIS category
-- Keep total under 5 lines
+- Line 2: "Menu: ${menuUrl}" (include this line exactly as shown)
+- Lines 3-5: 2-3 short follow-up questions for THIS category
+- Keep total under 6 lines
 - Natural and conversational, not formal
 - End with 🙏
 
@@ -55,52 +53,22 @@ Category-specific questions:
 stitching/tailoring:
   → When do you need it ready?
   → Can I come for measurements — what days suit you?
-  → Will you provide the fabric or shall I arrange?
 
 bakery/cake:
   → What date do you need it?
   → Any message on the cake / theme?
-  → Pickup or delivery?
 
-tiffin/food subscription:
-  → When would you like to start?
-  → How many people?
-  → Any dietary restrictions or allergies?
-
-food/snacks/sweets (single order):
+food/snacks/sweets:
   → When do you need it by?
-  → Is this for an occasion / gifting?
   → Pickup or delivery?
 
-jewelry/handmade products:
-  → Any customization in color, size or design?
-  → Is this a gift? Need gift wrapping?
-  → Pickup or shipping?
-
-candle/decor/beauty:
-  → Any customization?
-  → Is this a gift?
-  → Delivery or pickup?
-
-tutoring/coaching:
+coaching/tutoring:
   → Which class / grade / level?
   → Preferred days and time?
-  → Online or in-person?
-
-nutrition/wellness coaching:
-  → Brief about your current goal?
-  → Preferred session days and time?
-  → Online or in-person?
 
 healing/spiritual:
   → Any specific area you'd like to focus on?
-  → Preferred day and time?
   → In-person or online?
-
-plants/gardening:
-  → Indoor or outdoor placement?
-  → Any preferences on size or variety?
-  → Delivery or pickup?
 
 If category is unclear → ask 2 generic questions:
   → When do you need it?
@@ -144,12 +112,9 @@ ${delivery_type ? `Fulfillment: ${delivery_type}` : ''}`
     const data = await res.json()
     let message = data.choices?.[0]?.message?.content?.trim() || buildFallback(product_name, business_name, seller_slug, variant_label, variant_price, currency, quantity)
 
-    // Ensure routing tag is present — webhook uses /klovi\/([a-z0-9-]+)/i to extract seller slug
-    if (seller_slug && !message.includes(`klovi/${seller_slug}`)) {
-      // Insert routing tag at the end of the first line
-      const lines = message.split('\n')
-      lines[0] = lines[0].replace(/\.?\s*$/, '') + ` from *${business_name}* (klovi/${seller_slug}).`
-      message = lines.join('\n')
+    // Ensure menu URL is present — webhook uses kloviapp.com/{slug} to identify seller
+    if (seller_slug && !message.includes(`kloviapp.com/${seller_slug}`)) {
+      message = message + `\nMenu: kloviapp.com/${seller_slug}`
     }
 
     messageCache.set(cacheKey, message)
@@ -174,6 +139,6 @@ function buildFallback(
   const varStr = variantLabel ? ` — ${variantLabel}` : ''
   const priceStr = variantPrice ? ` (${sym}${variantPrice})` : ''
   const fromStr = businessName ? ` from *${businessName}*` : ''
-  const routeStr = sellerSlug ? ` (klovi/${sellerSlug})` : ''
-  return `Hi! I'd like to order ${qtyStr}*${productName}*${varStr}${priceStr}${fromStr}${routeStr}.\nCan you share availability and details? 🙏`
+  const menuStr = sellerSlug ? `\nMenu: kloviapp.com/${sellerSlug}` : ''
+  return `Hi! I'd like to order ${qtyStr}*${productName}*${varStr}${priceStr}${fromStr}.${menuStr}\nCan you share availability? 🙏`
 }

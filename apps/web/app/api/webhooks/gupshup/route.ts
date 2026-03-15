@@ -56,9 +56,12 @@ function extractMediaUrl(
  * - "from *Renu Stitching* (klovi/renu-stitching)"
  */
 function extractSlug(text: string): string | null {
-  // Pattern: klovi/slug-name
-  const match = text.match(/klovi\/([a-z0-9-]+)/i);
-  return match ? match[1].toLowerCase() : null;
+  // Match kloviapp.com/slug-name (new format, natural URL in message)
+  const urlMatch = text.match(/kloviapp\.com\/([a-z0-9-]+)/i);
+  if (urlMatch) return urlMatch[1].toLowerCase();
+  // Fallback: klovi/slug-name (old format)
+  const legacyMatch = text.match(/klovi\/([a-z0-9-]+)/i);
+  return legacyMatch ? legacyMatch[1].toLowerCase() : null;
 }
 
 /**

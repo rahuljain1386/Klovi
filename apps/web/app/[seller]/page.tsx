@@ -124,11 +124,11 @@ export default async function SellerStorefront({ params }: Props) {
   // Contact bar also uses Klovi number (bot handles everything)
   const contactWaNumber = KLOVI_WA_NUMBER;
   const contactWaLink = contactWaNumber
-    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw your shop on Klovi (klovi/${seller.slug}). 🙏`)}`
+    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw ${seller.business_name} on kloviapp.com/${seller.slug} and I'd like to know more!`)}`
     : '';
-  // Order flow WhatsApp link (sticky bar + storefront)
+  // Order flow WhatsApp link — slug is embedded in the URL naturally (bot parses it)
   const waLink = hasWa
-    ? `https://wa.me/${orderWaNumber}?text=${encodeURIComponent(`Hi! I'm interested in ordering from *${seller.business_name}* (klovi/${seller.slug}). Can you help me? 🙏`)}`
+    ? `https://wa.me/${orderWaNumber}?text=${encodeURIComponent(`Hi! I'd like to order from ${seller.business_name}.\nMenu: kloviapp.com/${seller.slug}`)}`
     : '';
   const theme = getTheme(seller.category);
   const fulfillment = seller.fulfillment_modes || ['pickup'];

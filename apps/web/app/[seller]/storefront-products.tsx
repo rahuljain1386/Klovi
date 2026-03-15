@@ -230,7 +230,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
     } catch {
       const varStr = variant ? ` — ${variant.label}` : '';
       const priceStr = variant?.price || product.price;
-      setOrderMessage(`Hi! I'd like to order ${qty > 1 ? qty + 'x ' : ''}*${product.name}*${varStr} (${currSym}${priceStr}) from *${businessName}* (klovi/${seller.slug}). Can you share availability? 🙏`);
+      setOrderMessage(`Hi! I'd like to order ${qty > 1 ? qty + 'x ' : ''}*${product.name}*${varStr} (${currSym}${priceStr}) from *${businessName}*.\nMenu: kloviapp.com/${seller.slug}`);
     } finally {
       setMessageLoading(false);
     }
