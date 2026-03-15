@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
 // Temporary debug endpoint — tests each step of the bot pipeline
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const testSlug = searchParams.get('slug');
   const results: Record<string, unknown> = {};
 
   // 1. Check env vars
@@ -49,6 +51,35 @@ export async function GET() {
     }
   } catch (e: any) {
     results.supabase_error = e.message;
+  }
+
+  // 3b. Test storefront lookup for a specific slug
+  if (testSlug) {
+    try {
+      const supabase = createServiceRoleClient();
+      const { data: sellerBySlug, error: slugErr } = await supabase
+        .from('sellers')
+        .select('id, slug, business_name, status, user_id')
+        .eq('slug', testSlug)
+        .single();
+      if (slugErr) {
+        results.storefront_test = { error: slugErr.message, slug: testSlug };
+      } else if (!sellerBySlug) {
+        results.storefront_test = { error: 'Seller not found', slug: testSlug };
+      } else {
+        const { data: prods, error: prodErr } = await supabase
+          .from('products')
+          .select('id, name, status, price')
+          .eq('seller_id', sellerBySlug.id)
+          .eq('status', 'active');
+        results.storefront_test = {
+          seller: sellerBySlug,
+          products: prodErr ? { error: prodErr.message } : { count: prods?.length, items: prods },
+        };
+      }
+    } catch (e: any) {
+      results.storefront_test = { error: e.message };
+    }
   }
 
   // 4. Test Supabase Edge Function connectivity

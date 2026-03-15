@@ -91,8 +91,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SellerStorefront({ params }: Props) {
   const { seller: slug } = await params;
-  const supabase = getPublicClient() || await createClient();
-  const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
+  const serviceClient = getPublicClient();
+  const supabase = serviceClient || await createClient();
+  console.log('[Storefront] slug:', slug, '| service role:', !!serviceClient);
+  const { data: seller, error: sellerError } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
+  if (sellerError) {
+    console.error('[Storefront] Seller query error:', sellerError.message, '| slug:', slug);
+  }
   if (!seller) notFound();
 
   // Products: use service role to bypass RLS, fetch all active products

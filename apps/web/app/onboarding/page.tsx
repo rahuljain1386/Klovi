@@ -396,10 +396,14 @@ export default function OnboardingPage() {
         batch.map(async (p) => {
           // Use pexelsQuery if available, otherwise construct a better query
           const q = p.pexelsQuery || `${p.name} ${p.parentCategory === 'Homemade Sweets' ? 'indian sweet' : p.parentCategory === 'Pickles & Achar' ? 'indian pickle jar' : p.parentCategory === 'Healthy Snacks' ? 'healthy snack' : p.parentCategory === 'Masala & Spice Mixes' ? 'indian spice' : p.parentCategory === 'Tiffin Service' ? 'indian meal box' : p.parentCategory === "Women's Stitching" ? 'tailoring sewing' : ''}`;
-          const res = await fetch(`/api/photos/search?q=${encodeURIComponent(q)}&per_page=1`);
+          const res = await fetch(`/api/photos/search?q=${encodeURIComponent(q)}&per_page=8`);
           if (res.ok) {
             const data = await res.json();
-            if (data.photos?.[0]?.src) return { name: p.name, src: data.photos[0].src };
+            const photos = data.photos?.filter((ph: { src?: string }) => ph?.src);
+            if (photos?.length > 0) {
+              const pick = photos[Math.floor(Math.random() * photos.length)];
+              return { name: p.name, src: pick.src };
+            }
           }
           return null;
         })
