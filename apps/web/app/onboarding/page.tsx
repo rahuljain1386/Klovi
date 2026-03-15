@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { NICHE_TO_CATEGORIES, NICHE_OPTIONS, CATALOG_PRODUCTS, CATALOG_CATEGORIES } from '@/data/product-catalog';
+import { NICHE_TO_CATEGORIES, NICHE_OPTIONS, CATALOG_PRODUCTS, CATALOG_CATEGORIES, type CatalogProduct as StaticCatalogProduct } from '@/data/product-catalog';
 import MicButton from '@/components/MicButton';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -101,12 +101,10 @@ export default function OnboardingPage() {
   const [niche, setNiche] = useState<Niche | ''>('');
   const [otherNiche, setOtherNiche] = useState('');
 
-  // Screen 2 — Products
+  // Screen 2 — Products (loaded from Supabase catalog_products with admin DALL-E images)
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [catalogFilter, setCatalogFilter] = useState<string | null>(null);
-  const [catalogPhotos, setCatalogPhotos] = useState<Record<string, string>>({});
-  const photosFetched = useRef<Set<string>>(new Set());
 
   // Screen 3 — Business
   const [address, setAddress] = useState('');
@@ -121,12 +119,6 @@ export default function OnboardingPage() {
   // AI-generated profile (runs in background)
   const [aiProfile, setAiProfile] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
-
-  // DALL-E images (run in background from Screen 2 → 3)
-  const [dalleImages, setDalleImages] = useState<Record<string, string>>({});
-  const [dalleProgress, setDalleProgress] = useState(0);
-  const [dalleTotal, setDalleTotal] = useState(0);
-  const dalleRunning = useRef(false);
 
   // ─── Init: check auth, load existing seller ─────────────────────────────
   useEffect(() => {
@@ -195,89 +187,47 @@ export default function OnboardingPage() {
     );
   }, [router]);
 
-  // ─── Load catalog when niche changes ────────────────────────────────────
+  // ─── Load catalog from Supabase DB (has admin DALL-E images) ─────────
   useEffect(() => {
     if (!niche || niche === 'other') { setCatalogProducts([]); return; }
     const categories = NICHE_TO_CATEGORIES[niche] || [];
-    const products = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
-    setCatalogProducts(products);
-    setCatalogFilter(null);
-    setSelectedProducts(new Set());
-  }, [niche]);
-
-  // ─── Fetch Pexels photos for catalog ────────────────────────────────────
-  useEffect(() => {
-    if (catalogProducts.length === 0) return;
-    const toFetch = catalogProducts.filter(p => !photosFetched.current.has(p.name));
-    if (toFetch.length === 0) return;
-    toFetch.forEach(p => photosFetched.current.add(p.name));
-
-    const fetchBatch = async (batch: CatalogProduct[]) => {
-      const results = await Promise.allSettled(
-        batch.map(async (p) => {
-          const q = p.pexelsQuery || `${p.name} food product`;
-          const res = await fetch(`/api/photos/search?q=${encodeURIComponent(q)}&per_page=8`);
-          if (res.ok) {
-            const data = await res.json();
-            const photos = data.photos?.filter((ph: any) => ph?.src);
-            if (photos?.length > 0) {
-              const pick = photos[Math.floor(Math.random() * photos.length)];
-              return { name: p.name, src: pick.src };
-            }
-          }
-          return null;
-        })
-      );
-      const updates: Record<string, string> = {};
-      results.forEach(r => {
-        if (r.status === 'fulfilled' && r.value) updates[r.value.name] = r.value.src;
-      });
-      if (Object.keys(updates).length > 0) setCatalogPhotos(prev => ({ ...prev, ...updates }));
-    };
 
     (async () => {
-      for (let i = 0; i < toFetch.length; i += 4) {
-        await fetchBatch(toFetch.slice(i, i + 4));
+      const supabase = createClient();
+      // Load from DB — catalog_products has image_url from admin DALL-E batch run
+      const { data: dbProducts } = await supabase
+        .from('catalog_products')
+        .select('*')
+        .in('parent_category', categories)
+        .eq('enabled', true)
+        .order('sort_order');
+
+      if (dbProducts && dbProducts.length > 0) {
+        setCatalogProducts(dbProducts.map((p: any) => ({
+          name: p.name,
+          category: p.category,
+          parentCategory: p.parent_category,
+          title: p.title,
+          description: p.description,
+          highlights: p.highlights,
+          variants: p.variants || [],
+          quantity: p.quantity || '1',
+          priceMin: p.price_min,
+          priceMax: p.price_max,
+          dietary: p.dietary || [],
+          pexelsQuery: p.pexels_query,
+          imageUrl: p.image_url, // Admin-generated DALL-E image
+        })));
+      } else {
+        // Fallback to static file if DB is empty
+        const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
+        setCatalogProducts(staticProducts);
       }
+
+      setCatalogFilter(null);
+      setSelectedProducts(new Set());
     })();
-  }, [catalogProducts]);
-
-  // ─── Background DALL-E generation ───────────────────────────────────────
-  const startDalleGeneration = useCallback(async () => {
-    if (dalleRunning.current) return;
-    dalleRunning.current = true;
-    const products = Array.from(selectedProducts);
-    setDalleTotal(products.length);
-    setDalleProgress(0);
-
-    // Generate 2 at a time
-    for (let i = 0; i < products.length; i += 2) {
-      const batch = products.slice(i, i + 2);
-      const results = await Promise.allSettled(
-        batch.map(async (name) => {
-          try {
-            const res = await fetch('/api/ai/generate-image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name, category: niche }),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data.image) return { name, image: data.image };
-            }
-          } catch {}
-          return null;
-        })
-      );
-      results.forEach(r => {
-        if (r.status === 'fulfilled' && r.value) {
-          setDalleImages(prev => ({ ...prev, [r.value!.name]: r.value!.image }));
-        }
-      });
-      setDalleProgress(prev => prev + batch.length);
-    }
-    dalleRunning.current = false;
-  }, [selectedProducts, niche]);
+  }, [niche]);
 
   // ─── Generate AI profile in background ──────────────────────────────────
   const generateAiProfile = useCallback(async () => {
@@ -367,12 +317,16 @@ export default function OnboardingPage() {
   // ─── Screen 2: Save products & start background jobs ────────────────────
   const saveProducts = async () => {
     if (selectedProducts.size === 0) return;
+    if (!sellerId) {
+      console.error('[Onboarding] Cannot save products — sellerId is empty');
+      return;
+    }
     setSaving(true);
 
     const supabase = createClient();
     const sym = currency === 'INR' ? '₹' : '$';
 
-    // Insert selected catalog products
+    // Insert selected catalog products (use admin DALL-E images from catalog)
     const inserts = Array.from(selectedProducts).map((name, i) => {
       const cp = catalogProducts.find(p => p.name === name);
       return {
@@ -384,19 +338,21 @@ export default function OnboardingPage() {
         currency,
         sort_order: i,
         variants: cp && cp.variants.length > 0 ? JSON.stringify(cp.variants.map(v => ({ label: v, price: cp.priceMin, qty: null }))) : null,
-        images: catalogPhotos[name] ? [catalogPhotos[name]] : null,
+        images: cp?.imageUrl ? [cp.imageUrl] : null, // Use admin-generated DALL-E image
         status: 'active',
         is_available: true,
       };
     });
 
-    await supabase.from('products').insert(inserts);
+    const { error: insertError } = await supabase.from('products').insert(inserts);
+    if (insertError) {
+      console.error('[Onboarding] Product insert error:', insertError.message, '| sellerId:', sellerId, '| count:', inserts.length);
+    }
 
     setSaving(false);
     setStep('business');
 
-    // Start background jobs
-    startDalleGeneration();
+    // Start AI profile generation in background
     generateAiProfile();
   };
 
@@ -439,45 +395,9 @@ export default function OnboardingPage() {
       if (aiProfile.launchOffer) updates.launch_offer = aiProfile.launchOffer;
     }
 
-    await supabase.from('sellers').update(updates).eq('id', sellerId);
-
-    // Update product images with DALL-E if ready
-    if (Object.keys(dalleImages).length > 0) {
-      for (const [name, image] of Object.entries(dalleImages)) {
-        // Upload to Supabase storage
-        try {
-          const blob = await fetch(image).then(r => r.blob());
-          const filename = `${sellerId}/${name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.png`;
-          const { data: uploaded } = await supabase.storage
-            .from('product-images')
-            .upload(filename, blob, { contentType: 'image/png', upsert: true });
-
-          if (uploaded) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('product-images')
-              .getPublicUrl(uploaded.path);
-
-            await supabase
-              .from('products')
-              .update({ images: [publicUrl] })
-              .eq('seller_id', sellerId)
-              .eq('name', name);
-          }
-        } catch {}
-      }
-    }
-
-    // Apply AI pricing suggestions if available
-    if (aiProfile?.pricingSuggestions) {
-      for (const [name, pricing] of Object.entries(aiProfile.pricingSuggestions) as [string, any][]) {
-        if (pricing?.suggested) {
-          await supabase
-            .from('products')
-            .update({ price: pricing.suggested })
-            .eq('seller_id', sellerId)
-            .eq('name', name);
-        }
-      }
+    const { error: updateError } = await supabase.from('sellers').update(updates).eq('id', sellerId);
+    if (updateError) {
+      console.error('[Onboarding] Seller update error:', updateError.message);
     }
 
     setSaving(false);
@@ -694,8 +614,8 @@ export default function OnboardingPage() {
                     }`}
                   >
                     <div className="aspect-square bg-cream relative overflow-hidden">
-                      {catalogPhotos[p.name] ? (
-                        <img src={catalogPhotos[p.name]} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
+                      {p.imageUrl ? (
+                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-3xl text-warm-gray/30">
                           {NICHE_OPTIONS.find(n => n.id === niche)?.emoji || '📦'}
@@ -758,18 +678,10 @@ export default function OnboardingPage() {
             </div>
 
             {/* AI generating indicator */}
-            {(aiLoading || dalleTotal > 0) && (
+            {aiLoading && (
               <div className="bg-amber/10 rounded-xl p-3 flex items-center gap-3">
                 <div className="w-5 h-5 border-2 border-amber border-t-transparent rounded-full animate-spin" />
-                <div className="text-xs text-ink">
-                  {aiLoading && <span>AI is crafting your tagline and descriptions...</span>}
-                  {dalleTotal > 0 && dalleProgress < dalleTotal && (
-                    <span className="block">Creating product images ({dalleProgress}/{dalleTotal})</span>
-                  )}
-                  {dalleTotal > 0 && dalleProgress >= dalleTotal && (
-                    <span className="block text-green font-medium">Product images ready!</span>
-                  )}
-                </div>
+                <span className="text-xs text-ink">AI is crafting your tagline and descriptions...</span>
               </div>
             )}
 
@@ -952,14 +864,6 @@ export default function OnboardingPage() {
                     💡 {aiProfile.topSellingTip}
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* DALL-E image progress */}
-            {dalleTotal > 0 && dalleProgress < dalleTotal && (
-              <div className="bg-amber/10 rounded-xl p-4 text-center">
-                <div className="w-6 h-6 border-2 border-amber border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-ink">Making your product photos beautiful ({dalleProgress}/{dalleTotal})</p>
               </div>
             )}
 
