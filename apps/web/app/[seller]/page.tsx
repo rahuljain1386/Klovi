@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 
 // Use service role client for public storefront — bypasses RLS so products always show

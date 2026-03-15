@@ -6,6 +6,15 @@ import { createClient } from '@/lib/supabase/client';
 import { NICHE_TO_CATEGORIES, NICHE_OPTIONS, CATALOG_PRODUCTS, CATALOG_CATEGORIES, type CatalogProduct as StaticCatalogProduct } from '@/data/product-catalog';
 import MicButton from '@/components/MicButton';
 
+// Track whether user has manually edited a field (to prevent DB overwrite)
+const useEditTracker = () => {
+  const edited = useRef<Set<string>>(new Set());
+  return {
+    markEdited: (field: string) => edited.current.add(field),
+    wasEdited: (field: string) => edited.current.has(field),
+  };
+};
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Step = 'about' | 'products' | 'business' | 'live';
 type Niche = 'snacks' | 'bakery' | 'coaching' | 'spiritual_healing' | 'other';
@@ -119,6 +128,7 @@ export default function OnboardingPage() {
   // AI-generated profile (runs in background)
   const [aiProfile, setAiProfile] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const { markEdited, wasEdited } = useEditTracker();
 
   // ─── Init: check auth, load existing seller ─────────────────────────────
   useEffect(() => {
@@ -147,26 +157,27 @@ export default function OnboardingPage() {
       if (seller) {
         setSellerId(seller.id);
         setSlug(seller.slug);
-        if (seller.business_name) setBusinessName(seller.business_name);
-        if (seller.owner_name) setOwnerName(seller.owner_name);
-        if (seller.gender) setGender(seller.gender);
-        if (seller.niche) setNiche(seller.niche as Niche);
-        if (seller.city) setCity(seller.city);
-        if (seller.address_city) setCity(seller.address_city);
+        // Only pre-fill if user hasn't manually edited the field
+        if (seller.business_name && !wasEdited('businessName')) setBusinessName(seller.business_name);
+        if (seller.owner_name && !wasEdited('ownerName')) setOwnerName(seller.owner_name);
+        if (seller.gender && !wasEdited('gender')) setGender(seller.gender);
+        if (seller.niche && !wasEdited('niche')) setNiche(seller.niche as Niche);
+        if (seller.city && !wasEdited('city')) setCity(seller.city);
+        if (seller.address_city && !wasEdited('city')) setCity(seller.address_city);
         if (seller.address_country_code) {
           setCountryCode(seller.address_country_code);
           setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
-        if (seller.whatsapp_number || seller.phone) {
+        if ((seller.whatsapp_number || seller.phone) && !wasEdited('whatsapp')) {
           setWhatsapp(seller.whatsapp_number || seller.phone || '');
         }
-        // Pre-fill from Google account
-        if (!seller.owner_name && user.user_metadata?.full_name) {
+        // Pre-fill from Google account only if no DB data and user hasn't typed
+        if (!seller.owner_name && user.user_metadata?.full_name && !wasEdited('ownerName')) {
           setOwnerName(user.user_metadata.full_name);
         }
       } else {
-        // New user — pre-fill from Google
-        if (user.user_metadata?.full_name) setOwnerName(user.user_metadata.full_name);
+        // New user — pre-fill from Google only if user hasn't typed
+        if (user.user_metadata?.full_name && !wasEdited('ownerName')) setOwnerName(user.user_metadata.full_name);
       }
     })();
 
@@ -314,7 +325,7 @@ export default function OnboardingPage() {
     setStep('products');
   };
 
-  // ─── Screen 2: Save products & start background jobs ────────────────────
+  // ─── Screen 2: Save products via server API (bypasses RLS) ──────────────
   const saveProducts = async () => {
     if (selectedProducts.size === 0) return;
     if (!sellerId) {
@@ -323,30 +334,36 @@ export default function OnboardingPage() {
     }
     setSaving(true);
 
-    const supabase = createClient();
-    const sym = currency === 'INR' ? '₹' : '$';
-
-    // Insert selected catalog products (use admin DALL-E images from catalog)
-    const inserts = Array.from(selectedProducts).map((name, i) => {
+    // Build product data to send to server
+    const products = Array.from(selectedProducts).map((name) => {
       const cp = catalogProducts.find(p => p.name === name);
       return {
-        seller_id: sellerId,
         name,
         description: cp?.description || null,
         price: cp?.priceMin || 0,
         category: cp?.category || null,
         currency,
-        sort_order: i,
-        variants: cp && cp.variants.length > 0 ? JSON.stringify(cp.variants.map(v => ({ label: v, price: cp.priceMin, qty: null }))) : null,
-        images: cp?.imageUrl ? [cp.imageUrl] : null, // Use admin-generated DALL-E image
-        status: 'active',
-        is_available: true,
+        variants: cp && cp.variants.length > 0
+          ? JSON.stringify(cp.variants.map(v => ({ label: v, price: cp.priceMin, qty: null })))
+          : null,
+        images: cp?.imageUrl ? [cp.imageUrl] : null,
       };
     });
 
-    const { error: insertError } = await supabase.from('products').insert(inserts);
-    if (insertError) {
-      console.error('[Onboarding] Product insert error:', insertError.message, '| sellerId:', sellerId, '| count:', inserts.length);
+    try {
+      const res = await fetch('/api/onboarding/save-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId, products }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        console.error('[Onboarding] Product save failed:', result);
+      } else {
+        console.log('[Onboarding] Products saved:', result.count);
+      }
+    } catch (err) {
+      console.error('[Onboarding] Product save request failed:', err);
     }
 
     setSaving(false);
@@ -453,11 +470,11 @@ export default function OnboardingPage() {
                 <input
                   type="text"
                   value={ownerName}
-                  onChange={(e) => setOwnerName(e.target.value)}
+                  onChange={(e) => { markEdited('ownerName'); setOwnerName(e.target.value); }}
                   className="flex-1 px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber text-ink text-base"
                   placeholder="e.g., Sunita Sharma"
                 />
-                <MicButton onTranscript={(t) => setOwnerName(prev => prev ? `${prev} ${t}` : t)} />
+                <MicButton onTranscript={(t) => { markEdited('ownerName'); setOwnerName(prev => prev ? `${prev} ${t}` : t); }} />
               </div>
             </div>
 
@@ -472,7 +489,7 @@ export default function OnboardingPage() {
                 ].map(g => (
                   <button
                     key={g.id}
-                    onClick={() => setGender(g.id)}
+                    onClick={() => { markEdited('gender'); setGender(g.id); }}
                     className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all ${
                       gender === g.id
                         ? 'bg-ink text-white'
@@ -492,11 +509,11 @@ export default function OnboardingPage() {
                 <input
                   type="text"
                   value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
+                  onChange={(e) => { markEdited('businessName'); setBusinessName(e.target.value); }}
                   className="flex-1 px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber text-ink text-base"
                   placeholder="e.g., Sunita's Kitchen"
                 />
-                <MicButton onTranscript={(t) => setBusinessName(prev => prev ? `${prev} ${t}` : t)} />
+                <MicButton onTranscript={(t) => { markEdited('businessName'); setBusinessName(prev => prev ? `${prev} ${t}` : t); }} />
               </div>
             </div>
 
@@ -507,7 +524,7 @@ export default function OnboardingPage() {
                 {NICHE_OPTIONS.map(n => (
                   <button
                     key={n.id}
-                    onClick={() => setNiche(n.id as Niche)}
+                    onClick={() => { markEdited('niche'); setNiche(n.id as Niche); }}
                     className={`w-full flex items-center gap-3 p-4 rounded-xl text-left transition-all ${
                       niche === n.id
                         ? 'bg-amber/10 border-2 border-amber'
@@ -770,7 +787,7 @@ export default function OnboardingPage() {
                 <input
                   type="tel"
                   value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
+                  onChange={(e) => { markEdited('whatsapp'); setWhatsapp(e.target.value); }}
                   className="flex-1 px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber text-ink text-base"
                   placeholder={isIndia ? '+91 98765 43210' : '+1 (555) 123-4567'}
                 />
