@@ -159,27 +159,36 @@ export default function OnboardingPage() {
       if (seller) {
         setSellerId(seller.id);
         setSlug(seller.slug);
-        // Only pre-fill if user hasn't manually edited the field
-        if (seller.business_name && !wasEdited('businessName')) setBusinessName(seller.business_name);
-        if (seller.owner_name && !wasEdited('ownerName')) setOwnerName(seller.owner_name);
-        if (seller.gender && !wasEdited('gender')) setGender(seller.gender);
-        if (seller.niche && !wasEdited('niche')) setNiche(seller.niche as Niche);
-        if (seller.city && !wasEdited('city')) setCity(seller.city);
-        if (seller.address_city && !wasEdited('city')) setCity(seller.address_city);
+
+        // Only pre-fill from DB if seller has COMPLETED onboarding (status=active)
+        // If still in onboarding status, let user start fresh
+        const completed = seller.status === 'active';
+
+        if (completed) {
+          if (seller.business_name) setBusinessName(seller.business_name);
+          if (seller.owner_name) setOwnerName(seller.owner_name);
+          if (seller.gender) setGender(seller.gender);
+          if (seller.niche) setNiche(seller.niche as Niche);
+        }
+
+        // Always pre-fill location/phone (useful context)
+        if (seller.city) setCity(seller.city);
+        if (seller.address_city) setCity(seller.address_city);
         if (seller.address_country_code) {
           setCountryCode(seller.address_country_code);
           setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
-        if ((seller.whatsapp_number || seller.phone) && !wasEdited('whatsapp')) {
+        if (seller.whatsapp_number || seller.phone) {
           setWhatsapp(seller.whatsapp_number || seller.phone || '');
         }
-        // Pre-fill from Google account only if no DB data and user hasn't typed
-        if (!seller.owner_name && user.user_metadata?.full_name && !wasEdited('ownerName')) {
+
+        // Pre-fill name from Google if nothing in DB
+        if (!seller.owner_name && user.user_metadata?.full_name) {
           setOwnerName(user.user_metadata.full_name);
         }
       } else {
-        // New user — pre-fill from Google only if user hasn't typed
-        if (user.user_metadata?.full_name && !wasEdited('ownerName')) setOwnerName(user.user_metadata.full_name);
+        // New user — pre-fill name from Google
+        if (user.user_metadata?.full_name) setOwnerName(user.user_metadata.full_name);
       }
     })();
 

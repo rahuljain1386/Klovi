@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
     variants: p.variants || null,
     images: p.images || null,
     status: 'active',
-    is_available: true,
   }));
 
   const { data: inserted, error: insertError } = await supabase
