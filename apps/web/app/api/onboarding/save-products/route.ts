@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     description: p.description || null,
     price: p.price || 0,
     category: p.category || null,
+    quantity: p.quantity || null,
     currency: p.currency || 'INR',
     sort_order: i,
     variants: p.variants || null,

@@ -122,7 +122,7 @@ export default function OnboardingPage() {
   interface VariantEdit { label: string; price: number }
   interface ProductEdit {
     name: string; description: string; price: number; image: string | null;
-    category: string; isCustom?: boolean; variants: VariantEdit[];
+    category: string; quantity: string; isCustom?: boolean; variants: VariantEdit[];
   }
   const [productEdits, setProductEdits] = useState<Record<string, ProductEdit>>({});
 
@@ -393,6 +393,7 @@ export default function OnboardingPage() {
         description: edit?.description ?? cp?.description ?? null,
         price: edit?.price ?? cp?.priceMin ?? 0,
         category: edit?.category ?? cp?.category ?? null,
+        quantity: edit?.quantity ?? cp?.quantity ?? null,
         currency,
         variants: variantsJson,
         images: (edit?.image ? [edit.image] : cp?.imageUrl ? [cp.imageUrl] : null),
@@ -510,7 +511,7 @@ export default function OnboardingPage() {
     return {
       name: cp?.name || key, description: cp?.description || '',
       price: cp?.priceMin || 0, image: cp?.imageUrl || null,
-      category: cp?.category || '', variants: [],
+      category: cp?.category || '', quantity: cp?.quantity || '', variants: [],
     };
   };
   const updateEdit = (key: string, patch: Partial<ProductEdit>) => {
@@ -788,6 +789,10 @@ export default function OnboardingPage() {
                               <input type="number" value={edit.price} min={0}
                                 onChange={e => updateEdit(key, { price: Number(e.target.value) })}
                                 className="w-20 px-2 py-1 text-sm font-medium text-ink border border-border rounded-lg focus:outline-none focus:border-amber" />
+                              <input type="text" value={edit.quantity}
+                                onChange={e => updateEdit(key, { quantity: e.target.value })}
+                                className="w-24 px-2 py-1 text-xs text-warm-gray border border-border rounded-lg focus:outline-none focus:border-amber"
+                                placeholder="Qty (1kg, 6pc)" />
                               <input type="text" value={edit.category}
                                 onChange={e => updateEdit(key, { category: e.target.value })}
                                 className="flex-1 px-2 py-1 text-xs text-warm-gray border border-transparent hover:border-border focus:border-amber rounded-lg focus:outline-none"
@@ -866,7 +871,7 @@ export default function OnboardingPage() {
               const key = `custom_${Date.now()}`;
               setProductEdits(prev => ({
                 ...prev,
-                [key]: { name: '', description: '', price: 0, image: null, category: '', variants: [], isCustom: true },
+                [key]: { name: '', description: '', price: 0, image: null, category: '', quantity: '', variants: [], isCustom: true },
               }));
               setSelectedProducts(prev => { const next = new Set(prev); next.add(key); return next; });
             }} className="w-full py-3 rounded-xl border-2 border-dashed border-amber/40 text-amber font-semibold text-sm hover:border-amber hover:bg-amber/5 transition-colors">
