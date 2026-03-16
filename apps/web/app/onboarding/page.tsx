@@ -17,7 +17,7 @@ const useEditTracker = () => {
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type Step = 'about' | 'products' | 'business' | 'live';
-type Niche = 'snacks' | 'bakery' | 'coaching' | 'spiritual_healing' | 'other';
+type Niche = 'snacks' | 'bakery' | 'coaching' | 'spiritual_healing' | 'tiffin' | 'beauty' | 'jewelry' | 'crafts' | 'other';
 type DeliveryMode = 'pickup' | 'delivery' | 'shipping';
 
 interface CatalogProduct {
@@ -111,6 +111,7 @@ export default function OnboardingPage() {
   const [gender, setGender] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [niche, setNiche] = useState<Niche | ''>('');
+  const prevNicheRef = useRef<Niche | ''>('');
   const [otherNiche, setOtherNiche] = useState('');
 
   // Screen 2 — Products (loaded from Supabase catalog_products with admin DALL-E images)
@@ -132,6 +133,7 @@ export default function OnboardingPage() {
   const [city, setCity] = useState('');
   const [deliveryModes, setDeliveryModes] = useState<Set<DeliveryMode>>(new Set(['pickup']));
   const [payments, setPayments] = useState<string[]>(['cash']);
+  const [upiId, setUpiId] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [currency, setCurrency] = useState('INR');
   const [countryCode, setCountryCode] = useState('IN');
@@ -227,6 +229,12 @@ export default function OnboardingPage() {
 
   // ─── Load catalog from Supabase DB (has admin DALL-E images) ─────────
   useEffect(() => {
+    // Only clear products if the niche actually changed (not just navigating back)
+    const nicheChanged = niche !== prevNicheRef.current;
+    prevNicheRef.current = niche;
+
+    if (!nicheChanged && catalogProducts.length > 0) return;
+
     // Clear immediately — don't wait for async
     setSelectedProducts(new Set());
     setProductEdits({});
@@ -327,7 +335,7 @@ export default function OnboardingPage() {
         gender: gender || null,
         niche,
         slug: newSlug,
-        category: niche === 'snacks' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
+        category: niche === 'snacks' ? 'food' : niche === 'tiffin' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'beauty' ? 'beauty' : niche === 'jewelry' ? 'jewelry' : niche === 'crafts' ? 'crafts' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
       };
 
       // New seller — add required fields
@@ -491,7 +499,7 @@ export default function OnboardingPage() {
         phone: cleanedPhone,
         whatsapp_path: 'own_number',
         cod_enabled: payments.includes('cash'),
-        upi_id: payments.includes('upi') ? '' : null,
+        upi_id: payments.includes('upi') ? (upiId.trim() || null) : null,
         fulfillment_modes: Array.from(deliveryModes),
         pickup_address: address || null,
         onboarding_completed_at: new Date().toISOString(),
@@ -846,8 +854,17 @@ export default function OnboardingPage() {
                         <div className="px-3 pb-3">
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                             <span className="text-[11px] font-medium text-warm-gray">Sizes</span>
-                            {/* Quick-add common sizes */}
-                            {['250gm', '500gm', '1kg', '2kg'].map(size => {
+                            {/* Quick-add common sizes — dynamic per niche */}
+                            {((['snacks', 'bakery', 'tiffin'].includes(niche as string))
+                              ? ['250gm', '500gm', '1kg', '2kg']
+                              : niche === 'jewelry'
+                              ? ['Small', 'Medium', 'Large', 'Custom']
+                              : niche === 'beauty'
+                              ? ['30min', '1hr', '2hr']
+                              : (['coaching', 'spiritual_healing'].includes(niche as string))
+                              ? ['1 Session', '5 Sessions', '10 Sessions', 'Monthly']
+                              : ['Small', 'Medium', 'Large']
+                            ).map(size => {
                               const already = (edit.variants || []).some(v => v.label === size);
                               if (already) return null;
                               return (
@@ -870,7 +887,7 @@ export default function OnboardingPage() {
                             <div className="space-y-1.5">
                               {edit.variants.map((v, vi) => (
                                 <div key={vi} className="flex items-center gap-2">
-                                  <input type="text" value={v.label} placeholder="e.g., 250gm, 500gm, 1kg"
+                                  <input type="text" value={v.label} placeholder="e.g., size or variant"
                                     onChange={e => {
                                       const variants = [...edit.variants]; variants[vi] = { ...v, label: e.target.value };
                                       updateEdit(key, { variants });
@@ -1036,6 +1053,18 @@ export default function OnboardingPage() {
                   </button>
                 ))}
               </div>
+              {payments.includes('upi') && (
+                <div className="mt-3">
+                  <label className="text-xs font-medium text-warm-gray block mb-1">Your UPI ID</label>
+                  <input
+                    type="text"
+                    value={upiId}
+                    onChange={(e) => setUpiId(e.target.value)}
+                    className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-amber text-ink text-base"
+                    placeholder="yourname@upi"
+                  />
+                </div>
+              )}
             </div>
 
             {/* WhatsApp Number */}

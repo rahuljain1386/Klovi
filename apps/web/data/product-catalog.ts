@@ -1606,12 +1606,20 @@ export const NICHE_TO_CATEGORIES: Record<string, string[]> = {
   bakery: ['Home Bakery', 'Homemade Chocolates'],
   coaching: ['Nutrition & Weight Coaching', 'Home Tutoring & Classes', "Women's Stitching"],
   spiritual_healing: ['Healing & Spiritual'],
+  tiffin: ['Tiffin Service'],
+  beauty: ['Natural Beauty & Skincare'],
+  jewelry: ['Handmade Jewelry'],
+  crafts: ['Candles & Home D\u00e9cor', 'Plants & Gardening', 'Gift Hampers'],
   other: [],
 };
 
 export const NICHE_OPTIONS = [
   { id: 'snacks', label: 'Snacks & Food', emoji: '🥨', desc: 'Namkeen, sweets, pickles, healthy snacks' },
   { id: 'bakery', label: 'Bakery', emoji: '🧁', desc: 'Cakes, cookies, brownies, chocolates' },
+  { id: 'tiffin', label: 'Tiffin & Home Food', emoji: '🍱', desc: 'Tiffin service, homemade meals, catering' },
+  { id: 'beauty', label: 'Beauty & Mehendi', emoji: '💄', desc: 'Salon, skincare, mehendi art' },
+  { id: 'jewelry', label: 'Jewelry & Accessories', emoji: '💍', desc: 'Handmade jewelry, accessories' },
+  { id: 'crafts', label: 'Crafts & Home Decor', emoji: '🎨', desc: 'Candles, crafts, plants, gifts' },
   { id: 'coaching', label: 'Coaching & Services', emoji: '📚', desc: 'Tutoring, nutrition, stitching, fitness' },
   { id: 'spiritual_healing', label: 'Spiritual & Healing', emoji: '🔮', desc: 'Reiki, astrology, crystals, meditation' },
   { id: 'other', label: 'Something Else', emoji: '✨', desc: 'Tell us what you do' },

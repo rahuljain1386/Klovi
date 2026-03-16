@@ -180,9 +180,13 @@ async function generateAIReply(
   const defaultOptions = '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Special Requests\n4️⃣ Pricing\n5️⃣ Talk to Us'
   const quickOptions = categoryOptions[categoryLC] || defaultOptions
 
+  const sellerLanguage = seller?.language || 'English'
+
   const systemPrompt = `You are a professional, friendly assistant for "${seller?.business_name}", a ${seller?.category || 'home'} business in ${seller?.city}.
 
 Business description: ${seller?.description || 'A trusted local business'}
+
+LANGUAGE: The seller's preferred language is ${sellerLanguage}. Default to ${sellerLanguage} when the customer hasn't established a language preference yet. Once the customer writes in a specific language, match their language.
 
 Available products/services:
 ${buildProductCatalog(products)}
@@ -542,8 +546,12 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Parse payload outside try so catch block can access it for fallback messaging
+  let parsedPayload: IncomingMessage | null = null
+
   try {
     const payload: IncomingMessage = await req.json()
+    parsedPayload = payload
     const { channel, from, body, seller_id, media_url } = payload
 
     if (!channel || !from || !body || !seller_id) {
@@ -585,31 +593,8 @@ Deno.serve(async (req: Request) => {
 
     // 6. Determine message status based on confidence
     const isConfident = aiResponse.confidence > 0.85
-    const messageStatus = isConfident ? 'sent' : 'draft'
 
-    // 7. If confident, send the reply
-    if (isConfident) {
-      await sendReply(channel, from, aiResponse.reply)
-    }
-
-    // 8. Save outbound message
-    await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      seller_id,
-      customer_id: customer.id,
-      direction: 'outbound',
-      sender: 'ai',
-      content: aiResponse.reply,
-      role: 'assistant',
-      body: aiResponse.reply,
-      channel,
-      status: messageStatus,
-      intent: aiResponse.intent,
-      confidence: aiResponse.confidence,
-      created_at: new Date().toISOString(),
-    })
-
-    // 9. Create or update leads based on intent
+    // 7. Create or update leads based on intent
     if (aiResponse.intent === 'inquiry' && aiResponse.extracted_items?.length) {
       // Create a lead for each extracted item
       for (const item of aiResponse.extracted_items) {
@@ -648,8 +633,10 @@ Deno.serve(async (req: Request) => {
         .eq('status', 'new')
     }
 
-    // 10. If intent is order, create the order + send confirmation + deposit link
+    // 8. If intent is order, create the order BEFORE sending the AI reply
     let order = null
+    let replyText = aiResponse.reply
+    let orderCreationFailed = false
     if (aiResponse.intent === 'order' && aiResponse.extracted_items?.length) {
       try {
         order = await createOrder(
@@ -669,8 +656,50 @@ Deno.serve(async (req: Request) => {
           .update({ status: 'forwarded' })
           .eq('conversation_id', conversationId)
           .eq('status', 'confirmed')
+      } catch (err) {
+        console.error('Order creation failed:', err)
+        orderCreationFailed = true
+        // Override the AI reply since the order didn't actually get created
+        replyText = "I've noted your order request — the seller will confirm shortly. We'll get back to you with the details!"
+      }
+    }
 
-        // Build and send order confirmation message
+    // 9. Save outbound message BEFORE sending (as 'pending'), then update to final status
+    const messageStatus = isConfident ? 'pending' : 'draft'
+    const { data: outboundMsg } = await supabase.from('messages').insert({
+      conversation_id: conversationId,
+      seller_id,
+      customer_id: customer.id,
+      direction: 'outbound',
+      sender: 'ai',
+      content: replyText,
+      role: 'assistant',
+      body: replyText,
+      channel,
+      status: messageStatus,
+      intent: aiResponse.intent,
+      confidence: aiResponse.confidence,
+      created_at: new Date().toISOString(),
+    }).select('id').single()
+
+    // 10. If confident, send the reply and update status to 'sent'
+    if (isConfident) {
+      try {
+        await sendReply(channel, from, replyText)
+        if (outboundMsg) {
+          await supabase.from('messages').update({ status: 'sent' }).eq('id', outboundMsg.id)
+        }
+      } catch (sendErr) {
+        console.error('Failed to send reply:', sendErr)
+        if (outboundMsg) {
+          await supabase.from('messages').update({ status: 'failed' }).eq('id', outboundMsg.id)
+        }
+      }
+    }
+
+    // 11. If confident and order was created, send confirmation + deposit link
+    if (isConfident && order && !orderCreationFailed) {
+      try {
         const sellerName = sellerContext.seller?.business_name || 'Shop'
         const confirmationMsg = buildOrderConfirmation(
           order,
@@ -678,58 +707,90 @@ Deno.serve(async (req: Request) => {
           order.items || aiResponse.extracted_items
         )
 
-        // Send order confirmation via WhatsApp
-        if (isConfident) {
-          await sendReply(channel, from, confirmationMsg)
+        // Save confirmation message as pending first
+        const { data: confirmMsg } = await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          seller_id,
+          customer_id: customer.id,
+          direction: 'outbound',
+          sender: 'ai',
+          content: confirmationMsg,
+          role: 'assistant',
+          body: confirmationMsg,
+          channel,
+          status: 'pending',
+          intent: 'order_confirmation',
+          confidence: 1.0,
+          created_at: new Date().toISOString(),
+        }).select('id').single()
 
-          // Save confirmation message
-          await supabase.from('messages').insert({
+        // Send order confirmation via WhatsApp
+        await sendReply(channel, from, confirmationMsg)
+        if (confirmMsg) {
+          await supabase.from('messages').update({ status: 'sent' }).eq('id', confirmMsg.id)
+        }
+
+        // Generate and send deposit payment link
+        const paymentUrl = await generateDepositLink(order.id)
+        if (paymentUrl) {
+          const sym = order.currency === 'INR' ? '₹' : '$'
+          const paymentMsg = `💳 *Pay Deposit: ${sym}${order.deposit_amount}*\n\n${paymentUrl}\n\nYour order will be confirmed once the deposit is received.`
+
+          const { data: payMsg } = await supabase.from('messages').insert({
             conversation_id: conversationId,
             seller_id,
             customer_id: customer.id,
             direction: 'outbound',
             sender: 'ai',
-            content: confirmationMsg,
+            content: paymentMsg,
             role: 'assistant',
-            body: confirmationMsg,
+            body: paymentMsg,
             channel,
-            status: 'sent',
-            intent: 'order_confirmation',
+            status: 'pending',
+            intent: 'payment_link',
             confidence: 1.0,
             created_at: new Date().toISOString(),
-          })
+          }).select('id').single()
 
-          // Generate and send deposit payment link
-          const paymentUrl = await generateDepositLink(order.id)
-          if (paymentUrl) {
-            const sym = order.currency === 'INR' ? '₹' : '$'
-            const paymentMsg = `💳 *Pay Deposit: ${sym}${order.deposit_amount}*\n\n${paymentUrl}\n\nYour order will be confirmed once the deposit is received.`
-            await sendReply(channel, from, paymentMsg)
-
-            await supabase.from('messages').insert({
-              conversation_id: conversationId,
-              seller_id,
-              customer_id: customer.id,
-              direction: 'outbound',
-              sender: 'ai',
-              content: paymentMsg,
-              role: 'assistant',
-              body: paymentMsg,
-              channel,
-              status: 'sent',
-              intent: 'payment_link',
-              confidence: 1.0,
-              created_at: new Date().toISOString(),
-            })
+          await sendReply(channel, from, paymentMsg)
+          if (payMsg) {
+            await supabase.from('messages').update({ status: 'sent' }).eq('id', payMsg.id)
           }
         }
       } catch (err) {
-        console.error('Order creation failed:', err)
+        console.error('Order confirmation send failed:', err)
       }
     }
 
-    // 11. If NOT confident — alert seller
+    // 11b. If NOT confident — send holding message to customer, then alert seller
     if (!isConfident) {
+      // Send a holding message so the customer isn't left in silence
+      try {
+        const holdingMsg = "Great question! Let me check with the team and get back to you shortly."
+        const { data: holdMsg } = await supabase.from('messages').insert({
+          conversation_id: conversationId,
+          seller_id,
+          customer_id: customer.id,
+          direction: 'outbound',
+          sender: 'ai',
+          content: holdingMsg,
+          role: 'assistant',
+          body: holdingMsg,
+          channel,
+          status: 'pending',
+          intent: 'holding',
+          confidence: aiResponse.confidence,
+          created_at: new Date().toISOString(),
+        }).select('id').single()
+
+        await sendReply(channel, from, holdingMsg)
+        if (holdMsg) {
+          await supabase.from('messages').update({ status: 'sent' }).eq('id', holdMsg.id)
+        }
+      } catch (holdErr) {
+        console.error('Failed to send holding message:', holdErr)
+      }
+
       await alertSeller(seller_id, customer.id, from, body, channel)
     }
 
@@ -782,6 +843,29 @@ Deno.serve(async (req: Request) => {
     )
   } catch (err) {
     console.error('handle-message error:', err)
+
+    // Try to send a friendly fallback message to the customer
+    try {
+      if (parsedPayload?.from && parsedPayload?.channel && parsedPayload?.seller_id) {
+        // Try to get business name for a personalized fallback
+        let businessName = 'the team'
+        try {
+          const { data: s } = await supabase
+            .from('sellers')
+            .select('business_name')
+            .eq('id', parsedPayload.seller_id)
+            .single()
+          if (s?.business_name) businessName = s.business_name
+        } catch {}
+
+        const fallbackMsg = `Sorry, I'm having a little trouble right now. Your message has been noted and someone from ${businessName} will get back to you shortly!`
+        await sendReply(parsedPayload.channel, parsedPayload.from, fallbackMsg)
+      }
+    } catch (fallbackErr) {
+      // Don't let the fallback attempt cause further issues
+      console.error('Failed to send fallback message:', fallbackErr)
+    }
+
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
