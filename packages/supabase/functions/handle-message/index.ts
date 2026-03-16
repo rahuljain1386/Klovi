@@ -301,7 +301,7 @@ INTENT RULES:
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages,
       temperature: 0.7,
       response_format: { type: 'json_object' },
@@ -589,7 +589,81 @@ Deno.serve(async (req: Request) => {
       getConversationHistory(conversationId),
     ])
 
-    // 5. Generate AI reply
+    // 4b. FAST PATH — handle greetings and menu requests without AI (instant response)
+    const bodyLower = body.trim().toLowerCase()
+    const isGreeting = /^(hi|hello|hey|hii+|helo|namaste|namaskar|hola|yo|sup)[\s!.?]*$/i.test(bodyLower)
+    const isMenuRequest = bodyLower === '1' || bodyLower === 'menu' || bodyLower === 'view menu'
+    const isFirstMessage = history.length === 0
+
+    if ((isGreeting || isFirstMessage) && !isMenuRequest) {
+      // Build greeting response directly — no AI needed
+      const sellerName = sellerContext.seller?.business_name || 'our shop'
+      const categoryLC = (sellerContext.seller?.category || '').toLowerCase()
+      const categoryOptions: Record<string, string> = {
+        'snacks': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
+        'food': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
+        'bakery': '1️⃣ View Menu\n2️⃣ Order a Cake\n3️⃣ Custom Cake\n4️⃣ Party & Bulk Orders\n5️⃣ Talk to Us',
+        'coaching': '1️⃣ Our Programs\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'spiritual_healing': '1️⃣ Our Services\n2️⃣ Book a Session\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'beauty': '1️⃣ Our Services\n2️⃣ Book an Appointment\n3️⃣ Packages & Combos\n4️⃣ Pricing\n5️⃣ Talk to Us',
+        'jewelry': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Design\n4️⃣ Pricing & Materials\n5️⃣ Talk to Us',
+        'crafts': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Order\n4️⃣ Pricing & Shipping\n5️⃣ Talk to Us',
+      }
+      const quickOptions = categoryOptions[categoryLC] || '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Special Requests\n4️⃣ Pricing\n5️⃣ Talk to Us'
+      const greetReply = `Hello! 👋 Welcome to *${sellerName}*!\n\nHow can I help you today?\n\n${quickOptions}`
+
+      // Save + send directly, skip AI
+      const { data: fastMsg } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        seller_id, customer_id: customer.id,
+        direction: 'outbound', sender: 'ai',
+        content: greetReply, role: 'assistant', body: greetReply,
+        channel, status: 'pending', intent: 'greeting', confidence: 1.0,
+        created_at: new Date().toISOString(),
+      }).select('id').single()
+
+      await sendReply(channel, from, greetReply)
+      if (fastMsg) await supabase.from('messages').update({ status: 'sent' }).eq('id', fastMsg.id)
+
+      await supabase.from('conversations').update({
+        last_message_at: new Date().toISOString(), unread_count: 0,
+        last_message: body, needs_seller_attention: false, ai_can_handle: true,
+      }).eq('id', conversationId)
+
+      return new Response(JSON.stringify({ success: true, message_status: 'sent', intent: 'greeting', confidence: 1.0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    if (isMenuRequest) {
+      // Build menu response directly — no AI needed
+      const catalog = buildProductCatalog(sellerContext.products)
+      const sellerName = sellerContext.seller?.business_name || 'our shop'
+      const menuReply = catalog
+        ? `Here's our menu at *${sellerName}*:\n\n${catalog}\n\nReply with the item name to order!`
+        : `We're still setting up our menu. Please message us directly and we'll help you!`
+
+      const { data: fastMsg } = await supabase.from('messages').insert({
+        conversation_id: conversationId,
+        seller_id, customer_id: customer.id,
+        direction: 'outbound', sender: 'ai',
+        content: menuReply, role: 'assistant', body: menuReply,
+        channel, status: 'pending', intent: 'inquiry', confidence: 1.0,
+        created_at: new Date().toISOString(),
+      }).select('id').single()
+
+      await sendReply(channel, from, menuReply)
+      if (fastMsg) await supabase.from('messages').update({ status: 'sent' }).eq('id', fastMsg.id)
+
+      await supabase.from('conversations').update({
+        last_message_at: new Date().toISOString(), unread_count: 0,
+        last_message: body, needs_seller_attention: false, ai_can_handle: true,
+      }).eq('id', conversationId)
+
+      return new Response(JSON.stringify({ success: true, message_status: 'sent', intent: 'inquiry', confidence: 1.0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    // 5. Generate AI reply (for all non-trivial messages)
     const aiResponse = await generateAIReply(body, sellerContext, history)
 
     // 6. Determine message status based on confidence
