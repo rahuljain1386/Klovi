@@ -107,6 +107,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
 
+  // --- Log incoming webhook for debugging ------------------------------------
+  try {
+    const logSupabase = createServiceRoleClient();
+    await logSupabase.from('webhook_logs').insert({
+      source: 'gupshup',
+      payload: rawBody.substring(0, 4000),
+      headers: JSON.stringify({
+        'content-type': request.headers.get('content-type'),
+        'x-gupshup-signature': request.headers.get('x-gupshup-signature'),
+        'user-agent': request.headers.get('user-agent'),
+      }),
+      created_at: new Date().toISOString(),
+    });
+  } catch {
+    // Logging should never block the webhook — table may not exist yet
+  }
+
   // --- Signature verification ------------------------------------------------
   // Log for debugging but don't block — Gupshup v2 signing varies
   const gupshupApiKey = process.env.GUPSHUP_API_KEY;
