@@ -428,8 +428,14 @@ export default function OnboardingPage() {
     setSaving(false);
     setStep('business');
 
-    // Start AI profile generation in background
+    // Start AI profile + knowledge base generation in background
     generateAiProfile();
+    // Generate FAQ/knowledge base for WhatsApp bot (fire and forget)
+    fetch('/api/onboarding/generate-knowledge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sellerId: effectiveSellerId }),
+    }).catch(() => {});
   };
 
   // ─── Screen 3: Save business details & go live (via server API) ─────────
