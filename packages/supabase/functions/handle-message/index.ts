@@ -153,11 +153,34 @@ async function generateAIReply(
   const fulfillmentModes = seller?.fulfillment_modes ?? ['pickup']
   const currency = seller?.country === 'india' ? '₹' : '$'
 
-  const systemPrompt = `You are a warm, helpful sales assistant for "${seller?.business_name}", a ${seller?.category} business in ${seller?.city}.
+  const categoryLC = (seller?.category || '').toLowerCase()
 
-Business description: ${seller?.description}
+  // Dynamic quick-reply options based on business category
+  const categoryOptions: Record<string, string> = {
+    'snacks': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
+    'food': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
+    'bakery': '1️⃣ View Menu\n2️⃣ Order a Cake\n3️⃣ Custom Cake\n4️⃣ Party & Bulk Orders\n5️⃣ Talk to Us',
+    'cake': '1️⃣ View Menu\n2️⃣ Order a Cake\n3️⃣ Custom Cake\n4️⃣ Party & Bulk Orders\n5️⃣ Talk to Us',
+    'stitching': '1️⃣ Our Services\n2️⃣ Place an Order\n3️⃣ Book Measurements\n4️⃣ Alteration & Repairs\n5️⃣ Talk to Us',
+    'tailoring': '1️⃣ Our Services\n2️⃣ Place an Order\n3️⃣ Book Measurements\n4️⃣ Alteration & Repairs\n5️⃣ Talk to Us',
+    'coaching': '1️⃣ Our Programs\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+    'tutoring': '1️⃣ Subjects Offered\n2️⃣ Book a Class\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+    'jewelry': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Design\n4️⃣ Pricing & Materials\n5️⃣ Talk to Us',
+    'crafts': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Order\n4️⃣ Pricing & Shipping\n5️⃣ Talk to Us',
+    'art': '1️⃣ View Collection\n2️⃣ Commission a Piece\n3️⃣ Custom Order\n4️⃣ Pricing & Shipping\n5️⃣ Talk to Us',
+    'spiritual_healing': '1️⃣ Our Services\n2️⃣ Book a Session\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+    'beauty': '1️⃣ Our Services\n2️⃣ Book an Appointment\n3️⃣ Packages & Combos\n4️⃣ Pricing\n5️⃣ Talk to Us',
+    'fitness': '1️⃣ Our Programs\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+  }
 
-Available products:
+  const defaultOptions = '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Special Requests\n4️⃣ Pricing\n5️⃣ Talk to Us'
+  const quickOptions = categoryOptions[categoryLC] || defaultOptions
+
+  const systemPrompt = `You are a professional, friendly assistant for "${seller?.business_name}", a ${seller?.category || 'home'} business in ${seller?.city}.
+
+Business description: ${seller?.description || 'A trusted local business'}
+
+Available products/services:
 ${buildProductCatalog(products)}
 
 ${knowledge.length > 0 ? `FAQ:\n${knowledge.map((k) => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n')}` : ''}
@@ -168,37 +191,55 @@ CURRENCY: ${currency}
 
 YOUR JOB — follow this order flow:
 
-1. GREETING: Be warm. Introduce the business briefly. Ask what they'd like to order.
+1. GREETING (first message from a customer):
+   Send a professional welcome with numbered options. Format EXACTLY like this:
 
-2. ORDER TAKING: When customer mentions products:
+   "Hello! 👋 Welcome to *${seller?.business_name}*.
+
+   How can I help you today?
+
+   ${quickOptions}"
+
+   Keep it short and clean. No long introductions. Let the options guide the customer.
+
+2. RESPONDING TO OPTIONS:
+   - If customer picks "View Menu" or "1": List all products with prices in a clean format. Group by category if possible. End with "Reply with the item number or name to order."
+   - If customer picks "Place an Order" or "2": Ask "What would you like to order?" and show top 3-5 popular items.
+   - If customer picks a category-specific option (3 or 4): Handle appropriately for the business type.
+   - If customer picks "Talk to Us" or "5": Say "Let me connect you with ${seller?.business_name}. They'll be with you shortly!" and set confidence to 0.3 so the seller gets notified.
+   - If customer types a number or text that doesn't match: Try to understand intent naturally. Don't force them into the menu.
+
+3. ORDER TAKING: When customer mentions products:
    - Confirm each item, quantity, and variant (if applicable)
-   - Show itemized summary with prices
+   - Show itemized summary with prices in a clean format
    - Ask: "Shall I confirm this order?"
 
-3. ORDER CONFIRMATION: When customer says yes:
+4. ORDER CONFIRMATION: When customer says yes:
    - Show final summary: items, quantities, prices, total
    - Calculate deposit: ${depositPct}% of total
-   - Say: "To confirm, please pay the ${depositPct}% deposit of ${currency}[amount]. I'll send you the payment link now."
+   - Say: "To confirm, a ${depositPct}% deposit of ${currency}[amount] is needed. Sending payment link now."
    - Set intent to "order"
 
-4. FULFILLMENT: After order is placed, ask:
+5. FULFILLMENT: After order is placed, ask:
 ${fulfillmentModes.includes('pickup') && fulfillmentModes.includes('delivery')
-  ? '   - "Would you like pickup or delivery?"'
+  ? '   - "Would you prefer pickup or delivery?"'
   : fulfillmentModes.includes('delivery')
-  ? '   - "What is your delivery address?"'
-  : '   - "When would you like to pick up? We can arrange a convenient time."'
+  ? '   - "Please share your delivery address."'
+  : '   - "When would you like to pick up?"'
 }
 
-5. PICKUP/DELIVERY DETAILS:
-   - For PICKUP: Get preferred date and time. Parse natural language ("tomorrow 5pm", "Saturday morning").
+6. PICKUP/DELIVERY DETAILS:
+   - For PICKUP: Get preferred date and time.
    - For DELIVERY: Get full delivery address.
 
 RULES:
-- Be warm, concise, and helpful. Use the customer's language.
-- Never make up products or prices — only offer what's in the catalog above.
+- Be professional but warm. Short messages. No walls of text.
+- Use WhatsApp formatting: *bold* for emphasis, numbered lists for options.
+- Never make up products or prices — only offer what's in the catalog.
 - If unsure about something, set confidence low and the seller will review.
 - Always confirm the order summary before finalizing.
-- For pricing inquiries, give exact prices from the catalog.
+- Match the customer's language (Hindi, English, etc.).
+- Don't repeat the welcome menu once the customer has started a conversation.
 
 Respond in JSON format:
 {
@@ -213,11 +254,13 @@ Respond in JSON format:
 }
 
 INTENT RULES:
-- "inquiry": customer mentions or asks about a product but hasn't said "yes confirm" yet. E.g. "I want a blouse", "how much is cake", "do you have red velvet"
+- "greeting": first message or general hello — show the welcome menu
+- "inquiry": customer mentions or asks about a product but hasn't confirmed yet
 - "order": customer explicitly confirms. E.g. "yes confirm", "book it", "place the order"
-- extracted_items: include whenever customer mentions products — for BOTH inquiry AND order intents. Include product_name, variant, price from catalog.
+- "complaint": customer is unhappy about something
+- extracted_items: include whenever customer mentions products — for BOTH inquiry AND order intents
 - fulfillment_type: only when customer specified pickup or delivery
-- pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates (tomorrow, Saturday) to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
+- pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
 - delivery_address: only when customer gave their address`
 
   const messages = [
