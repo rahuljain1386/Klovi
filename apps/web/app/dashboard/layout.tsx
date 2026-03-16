@@ -6,12 +6,22 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { t } from '@/lib/i18n';
 
+// All sidebar nav items
 const navItems = [
-  { href: '/dashboard', key: 'nav.home', icon: '🏠' },
-  { href: '/dashboard/orders', key: 'nav.orders', icon: '📋' },
-  { href: '/dashboard/inbox', key: 'nav.inbox', icon: '💬' },
-  { href: '/dashboard/settings', key: 'nav.settings', icon: '⚙️' },
+  { href: '/dashboard', key: 'nav.home', icon: '🏠', mobile: true },
+  { href: '/dashboard/orders', key: 'nav.orders', icon: '📋', mobile: true },
+  { href: '/dashboard/inbox', key: 'nav.inbox', icon: '💬', mobile: true },
+  { href: '/dashboard/products', key: 'nav.products', icon: '🛍️', mobile: false },
+  { href: '/dashboard/customers', key: 'nav.customers', icon: '👥', mobile: false },
+  { href: '/dashboard/broadcasts', key: 'nav.broadcasts', icon: '📢', mobile: false },
+  { href: '/dashboard/reviews', key: 'nav.reviews', icon: '⭐', mobile: false },
+  { href: '/dashboard/posts', key: 'nav.posts', icon: '📸', mobile: false },
+  { href: '/dashboard/settings', key: 'nav.settings', icon: '⚙️', mobile: true },
 ];
+
+// Mobile bottom bar: 4 main tabs + More
+const mobileNavItems = navItems.filter(i => i.mobile);
+const moreNavItems = navItems.filter(i => !i.mobile);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -19,6 +29,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sellerName, setSellerName] = useState('');
   const [language, setLanguage] = useState('en');
   const [loading, setLoading] = useState(true);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -126,9 +137,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </main>
 
-      {/* Mobile bottom tab bar — 4 items: Home, Orders, Inbox, Settings */}
+      {/* Mobile bottom tab bar — 4 main tabs + More */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#e7e0d4] z-30 flex items-center justify-around px-1 py-1.5 safe-area-pb">
-        {navItems.map((item) => {
+        {mobileNavItems.map((item) => {
           const isActive = pathname === item.href ||
             (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
@@ -145,6 +156,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           );
         })}
+        {/* More button */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMore(!showMore)}
+            className={`flex flex-col items-center gap-0.5 py-1.5 px-2 min-w-[56px] ${
+              moreNavItems.some(i => pathname.startsWith(i.href)) ? 'text-amber' : 'text-warm-gray'
+            }`}
+          >
+            <span className="text-xl">☰</span>
+            <span className="text-[10px] font-medium">More</span>
+          </button>
+          {showMore && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowMore(false)} />
+              <div className="absolute bottom-14 right-0 bg-white rounded-xl shadow-lg border border-border z-50 py-2 min-w-[180px]">
+                {moreNavItems.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setShowMore(false)}
+                      className={`flex items-center gap-3 px-4 py-3 text-sm ${
+                        isActive ? 'text-amber font-semibold bg-amber/5' : 'text-ink hover:bg-cream/50'
+                      }`}
+                    >
+                      <span className="text-lg">{item.icon}</span>
+                      {t(item.key, language)}
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </nav>
     </div>
   );

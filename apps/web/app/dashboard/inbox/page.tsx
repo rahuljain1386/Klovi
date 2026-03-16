@@ -127,15 +127,20 @@ export default function InboxPage() {
   };
 
   const loadUnrouted = async () => {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('unrouted_messages')
-      .select('*')
-      .eq('resolved', false)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    // Only load unrouted messages — skip if table doesn't exist
+    try {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('unrouted_messages')
+        .select('*')
+        .eq('resolved', false)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-    setUnrouted((data as UnroutedMessage[]) || []);
+      setUnrouted((data as UnroutedMessage[]) || []);
+    } catch {
+      // Table may not exist
+    }
   };
 
   const loadMessages = async (convId: string) => {

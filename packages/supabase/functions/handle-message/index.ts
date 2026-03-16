@@ -155,6 +155,10 @@ async function generateAIReply(
 
   const categoryLC = (seller?.category || '').toLowerCase()
 
+  // Service-based categories (no physical delivery — use online/in-person instead)
+  const serviceCategories = ['coaching', 'tutoring', 'spiritual_healing', 'healing', 'spiritual', 'beauty', 'fitness', 'yoga', 'meditation', 'astrology', 'counseling', 'consulting', 'therapy']
+  const isServiceCategory = serviceCategories.includes(categoryLC)
+
   // Dynamic quick-reply options based on business category
   const categoryOptions: Record<string, string> = {
     'snacks': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
@@ -185,7 +189,8 @@ ${buildProductCatalog(products)}
 
 ${knowledge.length > 0 ? `FAQ:\n${knowledge.map((k) => `Q: ${k.question}\nA: ${k.answer}`).join('\n\n')}` : ''}
 
-FULFILLMENT: ${fulfillmentModes.join(' and ')} available
+${isServiceCategory ? `MODE: Online and In-Person sessions available
+LOCATION: ${seller?.city} (in-person) / Virtual (online — PAN India / worldwide)` : `FULFILLMENT: ${fulfillmentModes.join(' and ')} available`}
 DEPOSIT: ${depositPct}% deposit required to confirm orders
 CURRENCY: ${currency}
 
@@ -203,34 +208,43 @@ YOUR JOB — follow this order flow:
    Keep it short and clean. No long introductions. Let the options guide the customer.
 
 2. RESPONDING TO OPTIONS:
-   - If customer picks "View Menu" or "1": List all products with prices in a clean format. Group by category if possible. End with "Reply with the item number or name to order."
+${isServiceCategory ? `   - If customer picks "Our Services/Programs" or "1": List all services with prices. End with "Reply with service name to book."
+   - If customer picks "Book a Session/Class" or "2": Ask what service they want, preferred date/time, and whether online or in-person.
+   - If customer picks "Online / In-Person" or "3": Explain that online sessions are available PAN India via video call, and in-person sessions in ${seller?.city}. Ask which they prefer.
+   - If customer picks "Fees & Packages" or "4": Show detailed pricing with any package discounts or free consultation offers.
+   - If customer asks about free consultation: Say "Yes! We offer a free initial consultation to understand your needs. Would you like to book one?" and collect their preferred date/time.
+   - If customer picks "Talk to Us" or "5": Say "Let me connect you with ${seller?.business_name}. They'll be with you shortly!" and set confidence to 0.3 so the seller gets notified.` : `   - If customer picks "View Menu" or "1": List all products with prices in a clean format. Group by category if possible. End with "Reply with the item number or name to order."
    - If customer picks "Place an Order" or "2": Ask "What would you like to order?" and show top 3-5 popular items.
    - If customer picks a category-specific option (3 or 4): Handle appropriately for the business type.
-   - If customer picks "Talk to Us" or "5": Say "Let me connect you with ${seller?.business_name}. They'll be with you shortly!" and set confidence to 0.3 so the seller gets notified.
+   - If customer picks "Talk to Us" or "5": Say "Let me connect you with ${seller?.business_name}. They'll be with you shortly!" and set confidence to 0.3 so the seller gets notified.`}
    - If customer types a number or text that doesn't match: Try to understand intent naturally. Don't force them into the menu.
 
-3. ORDER TAKING: When customer mentions products:
-   - Confirm each item, quantity, and variant (if applicable)
-   - Show itemized summary with prices in a clean format
-   - Ask: "Shall I confirm this order?"
+3. ${isServiceCategory ? 'BOOKING' : 'ORDER TAKING'}: When customer mentions ${isServiceCategory ? 'a service' : 'products'}:
+   - Confirm ${isServiceCategory ? 'service, mode (online/in-person), preferred date & time' : 'each item, quantity, and variant (if applicable)'}
+   - Show ${isServiceCategory ? 'booking' : 'itemized'} summary with prices in a clean format
+   - Ask: "Shall I confirm this ${isServiceCategory ? 'booking' : 'order'}?"
 
-4. ORDER CONFIRMATION: When customer says yes:
-   - Show final summary: items, quantities, prices, total
+4. ${isServiceCategory ? 'BOOKING' : 'ORDER'} CONFIRMATION: When customer says yes:
+   - Show final summary: ${isServiceCategory ? 'service, date, time, mode, price' : 'items, quantities, prices, total'}
    - Calculate deposit: ${depositPct}% of total
    - Say: "To confirm, a ${depositPct}% deposit of ${currency}[amount] is needed. Sending payment link now."
    - Set intent to "order"
 
-5. FULFILLMENT: After order is placed, ask:
-${fulfillmentModes.includes('pickup') && fulfillmentModes.includes('delivery')
+5. ${isServiceCategory ? 'SESSION DETAILS' : 'FULFILLMENT'}: After ${isServiceCategory ? 'booking' : 'order'} is placed:
+${isServiceCategory ? `   - If online: "You'll receive a video call link before the session."
+   - If in-person: "Please visit us at ${seller?.city}. We'll share the exact address."
+   - Ask for any specific concerns or areas they'd like to focus on.` : `${fulfillmentModes.includes('pickup') && fulfillmentModes.includes('delivery')
   ? '   - "Would you prefer pickup or delivery?"'
   : fulfillmentModes.includes('delivery')
   ? '   - "Please share your delivery address."'
   : '   - "When would you like to pick up?"'
-}
+}`}
 
-6. PICKUP/DELIVERY DETAILS:
-   - For PICKUP: Get preferred date and time.
-   - For DELIVERY: Get full delivery address.
+6. ${isServiceCategory ? 'FOLLOW-UP' : 'PICKUP/DELIVERY DETAILS'}:
+${isServiceCategory ? `   - Confirm date, time, mode.
+   - For online: Will share meeting link via WhatsApp before session.
+   - For in-person: Share location/address.` : `   - For PICKUP: Get preferred date and time.
+   - For DELIVERY: Get full delivery address.`}
 
 RULES:
 - Be professional but warm. Short messages. No walls of text.
