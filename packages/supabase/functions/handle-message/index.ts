@@ -285,6 +285,55 @@ INTENT RULES:
 - pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
 - delivery_address: only when customer gave their address`
 
+  // Build conversation for Gemini format
+  const geminiContents = [
+    ...history.map((h) => ({
+      role: h.role === 'customer' ? 'user' : 'model',
+      parts: [{ text: h.body }],
+    })),
+    { role: 'user' as const, parts: [{ text: message }] },
+  ]
+
+  const geminiKey = Deno.env.get('GEMINI_API_KEY')
+  const openaiKey = Deno.env.get('OPENAI_API_KEY')
+
+  // Try Gemini first (faster + cheaper), fall back to OpenAI
+  if (geminiKey) {
+    try {
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: geminiContents,
+            generationConfig: {
+              temperature: 0.7,
+              responseMimeType: 'application/json',
+            },
+          }),
+        }
+      )
+
+      if (geminiResponse.ok) {
+        const geminiData = await geminiResponse.json()
+        const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text
+        if (text) {
+          const parsed: AIResponse = JSON.parse(text)
+          return parsed
+        }
+      }
+      // If Gemini fails, fall through to OpenAI
+      console.error('Gemini response not ok, falling back to OpenAI')
+    } catch (geminiErr) {
+      console.error('Gemini error, falling back to OpenAI:', geminiErr)
+    }
+  }
+
+  // Fallback: OpenAI
+  if (!openaiKey) throw new Error('No AI API key configured (neither GEMINI_API_KEY nor OPENAI_API_KEY)')
+
   const messages = [
     { role: 'system', content: systemPrompt },
     ...history.map((h) => ({
@@ -297,7 +346,7 @@ INTENT RULES:
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+      'Authorization': `Bearer ${openaiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -568,23 +617,21 @@ Deno.serve(async (req: Request) => {
     // 2. Find or create conversation
     const conversationId = await findOrCreateConversation(seller_id, customer.id, channel)
 
-    // 3. Save inbound message
-    await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      seller_id,
-      customer_id: customer.id,
-      direction: 'inbound',
-      sender: from,
-      content: body,
-      role: 'customer',
-      body,
-      channel,
-      media_url: media_url ?? null,
-      created_at: new Date().toISOString(),
-    })
-
-    // 4. Get context for AI
-    const [sellerContext, history] = await Promise.all([
+    // 3. Save inbound message + fetch AI context in PARALLEL (saves ~300ms)
+    const [, sellerContext, history] = await Promise.all([
+      supabase.from('messages').insert({
+        conversation_id: conversationId,
+        seller_id,
+        customer_id: customer.id,
+        direction: 'inbound',
+        sender: from,
+        content: body,
+        role: 'customer',
+        body,
+        channel,
+        media_url: media_url ?? null,
+        created_at: new Date().toISOString(),
+      }),
       getSellerContext(seller_id),
       getConversationHistory(conversationId),
     ])
