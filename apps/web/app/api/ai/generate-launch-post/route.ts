@@ -13,23 +13,32 @@ export async function POST(request: Request) {
     const { businessName, businessType, city, products } = await request.json();
     if (!businessName) return NextResponse.json({ error: 'Business name required' }, { status: 400 });
 
-    const prompt = `Create a beautiful, modern social media launch announcement post for a small business called "${businessName}".
-Business type: ${businessType || 'local business'}.
-Location: ${city || 'local area'}.
-${products ? `Featured products: ${products}.` : ''}
+    const type = businessType || 'local business';
+    const location = city || 'local area';
 
-Design style: Clean, modern, warm and inviting. Use soft warm tones (cream, amber, brown).
-Include the business name prominently. Show it as a real business launch poster.
-Include a tagline like "Now Open" or "Grand Opening" or "Now Taking Orders".
-Make it look professional but personal — like a proud small business owner's first post.
-No stock photo feel. No generic clipart. Make it feel authentic and celebratory.
-Square format (1:1 ratio). No placeholder text like "lorem ipsum".`;
+    const prompt = `A stunning, emotional Instagram announcement card for "${businessName}" — a home-based ${type} business launching in ${location}.
+
+Visual style: Warm luxury aesthetic. Think handcrafted, personal, real.
+Background: soft bokeh of a warm kitchen/workspace with golden hour lighting, NOT a white studio.
+Dominant colors: cream, warm amber, terracotta, gold accents.
+
+Large elegant text overlay (center): "${businessName}"
+Subtext below: "${type} · ${location}"
+Bottom text: "Now Taking Orders"
+${products ? `Small tasteful product mention at bottom: "${products}"` : ''}
+
+Mood: Celebratory, warm, intimate. Like a friend announcing their dream coming true. NOT corporate. NOT stock photo. NOT a flyer template.
+Feel proud, feel personal, feel real.
+
+Square format 1:1. Cinematic warm lighting. No watermarks. No logos. No clip art. No generic stock elements.`;
 
     const response = await openai.images.generate({
       model: 'dall-e-3',
       prompt,
       n: 1,
       size: '1024x1024',
+      quality: 'hd',
+      style: 'vivid',
       response_format: 'b64_json',
     });
 
