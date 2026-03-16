@@ -2,14 +2,12 @@ export const dynamic = 'force-dynamic';
 
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
 
-// Use service role client for public storefront — bypasses RLS so products always show
 function getPublicClient() {
   try {
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return createServiceRoleClient();
     }
   } catch {}
-  // Fallback: this won't work for public pages due to RLS but better than crashing
   return null;
 }
 import { notFound } from 'next/navigation';
@@ -95,41 +93,19 @@ export default async function SellerStorefront({ params }: Props) {
   const { seller: slug } = await params;
   const serviceClient = getPublicClient();
   const supabase = serviceClient || await createClient();
-  console.log('[Storefront] slug:', slug, '| service role:', !!serviceClient);
-  const { data: seller, error: sellerError } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
-  if (sellerError) {
-    console.error('[Storefront] Seller query error:', sellerError.message, '| slug:', slug);
-  }
+  const { data: seller } = await supabase.from('sellers').select('*').eq('slug', slug).in('status', ['active', 'onboarding']).single();
   if (!seller) notFound();
 
-  // Products: use service role to bypass RLS, fetch all active products
-  const { data: products, error: productsError } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
-  if (productsError) {
-    console.error('[Storefront] Products query error:', productsError.message, '| seller_id:', seller.id);
-  }
-  console.log('[Storefront]', seller.slug, '| products found:', products?.length ?? 0, '| using service role:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-
+  const { data: products } = await supabase.from('products').select('*').eq('seller_id', seller.id).eq('status', 'active').order('sort_order');
   const { data: reviews } = await supabase.from('reviews').select('*, customers(name)').eq('seller_id', seller.id).eq('status', 'published').order('created_at', { ascending: false }).limit(10);
 
   const sym = seller.country === 'india' ? '₹' : '$';
-
-  // WhatsApp number logic:
-  // Klovi AI number handles ALL customer messages (bot auto-replies, takes orders, alerts seller)
-  // Seller's personal number is only for Klovi to send them notifications
   const KLOVI_WA_NUMBER = process.env.NEXT_PUBLIC_KLOVI_WA_NUMBER || '918854054503';
-  const sellerPersonalWa = (seller.whatsapp_number || seller.phone || '').replace(/\D/g, '');
-  // ALL orders go through Klovi AI number — bot handles conversations
   const orderWaNumber = KLOVI_WA_NUMBER;
-  const hasWa = true; // Klovi number is always available
-  // Contact bar also uses Klovi number (bot handles everything)
   const contactWaNumber = KLOVI_WA_NUMBER;
-  const contactWaLink = contactWaNumber
-    ? `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw ${seller.business_name} on kloviapp.com/${seller.slug} and I'd like to know more!`)}`
-    : '';
-  // Order flow WhatsApp link — slug is embedded in the URL naturally (bot parses it)
-  const waLink = hasWa
-    ? `https://wa.me/${orderWaNumber}?text=${encodeURIComponent(`Hi! I'd like to order from ${seller.business_name}.\nMenu: kloviapp.com/${seller.slug}`)}`
-    : '';
+  const contactWaLink = `https://wa.me/${contactWaNumber}?text=${encodeURIComponent(`Hi! I saw ${seller.business_name} on kloviapp.com/${seller.slug} and I'd like to know more!`)}`;
+  const waLink = `https://wa.me/${orderWaNumber}?text=${encodeURIComponent(`Hi! I'd like to order from ${seller.business_name}.\nMenu: kloviapp.com/${seller.slug}`)}`;
+
   const theme = getTheme(seller.category);
   const fulfillment = seller.fulfillment_modes || ['pickup'];
   const isVerified = seller.is_verified || seller.phone_verified;
@@ -137,15 +113,16 @@ export default async function SellerStorefront({ params }: Props) {
   const hasInsta = !!seller.instagram_handle;
   const hasFb = !!seller.facebook_handle;
   const productCount = products?.length || 0;
+  const catLabel = (seller.category || '').charAt(0).toUpperCase() + (seller.category || '').slice(1);
+  const cityState = seller.city ? `${seller.city}${seller.state ? `, ${seller.state}` : ''}` : '';
+  const fulfillmentLabel = fulfillment.includes('delivery') && fulfillment.includes('pickup') ? 'Pickup & Delivery' : fulfillment.includes('delivery') ? 'Home Delivery' : 'Pickup';
+  const pickupAddress = seller.pickup_address || seller.address;
 
-  // Hero photo: prefer seller's own cover/launch image, then first product image, then Pexels
+  // Hero image
   let heroUrl = seller.cover_photo_url || seller.launch_card_bg_url;
   if (!heroUrl) {
-    // Try first product image
     const firstProductImg = products?.find(p => p.images?.[0] || p.enhanced_images?.[0]);
-    if (firstProductImg) {
-      heroUrl = firstProductImg.images?.[0] || firstProductImg.enhanced_images?.[0];
-    }
+    if (firstProductImg) heroUrl = firstProductImg.images?.[0] || firstProductImg.enhanced_images?.[0];
   }
   if (!heroUrl) {
     try {
@@ -165,98 +142,102 @@ export default async function SellerStorefront({ params }: Props) {
     } catch {}
   }
 
-  // Trust pills
-  const pills = [
-    { icon: '💬', label: 'WhatsApp Orders', show: hasWa },
-    { icon: '🚚', label: 'Home Delivery', show: fulfillment.includes('delivery') },
-    { icon: '📍', label: 'Pickup Available', show: fulfillment.includes('pickup') },
-    { icon: '✨', label: 'Custom Orders', show: !!seller.allows_custom_orders },
-    { icon: '🎁', label: 'Gift Wrapping', show: !!seller.offers_gift_wrap },
-    { icon: '✅', label: 'Klovi Verified', show: isVerified },
-    { icon: '💵', label: 'Cash OK', show: !!seller.cod_enabled },
-  ].filter(p => p.show);
+  const aboutText = seller.about_text || seller.description;
+  const isLongAbout = aboutText && aboutText.length > 120;
 
   return (
-    <main className="min-h-screen bg-cream">
+    <main className="min-h-screen bg-[#faf8f5]">
       <div className="max-w-[480px] mx-auto">
 
-        {/* ═══ HERO — compact banner + info card ═══ */}
-        <div className="relative h-[160px] overflow-hidden">
+        {/* ═══ HERO — tall with overlaid business info ═══ */}
+        <div className="relative h-[300px] overflow-hidden">
           {heroUrl ? (
             <>
               <img src={heroUrl} alt="" className="w-full h-full object-cover" loading="eager" />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/60" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/70" />
             </>
           ) : (
             <>
               <div className={`w-full h-full bg-gradient-to-br ${theme.gradient}`} />
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50" />
             </>
           )}
 
           {/* Top bar */}
           <div className="absolute top-3 left-4 right-4 flex justify-between items-center z-10">
-            <Link href="/" className="text-[10px] text-amber bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full font-bold tracking-wider">⚡ KLOVI</Link>
+            <Link href="/" className="text-[10px] text-amber bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full font-bold tracking-wider">KLOVI</Link>
             <ShareButton businessName={seller.business_name} tagline={seller.tagline} />
           </div>
-        </div>
 
-        {/* ═══ BUSINESS INFO CARD — overlaps hero ═══ */}
-        <div className="px-4 -mt-12 relative z-10 mb-3">
-          <div className="bg-white rounded-2xl border border-border p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              {seller.avatar_url ? (
-                <img src={seller.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-amber/30 flex-shrink-0" />
-              ) : (
-                <div className="w-14 h-14 rounded-full bg-amber/10 flex items-center justify-center text-2xl border-2 border-amber/20 flex-shrink-0">{theme.emoji}</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <h1 className="font-display text-lg font-black text-ink leading-tight truncate">{seller.business_name}</h1>
-                <p className="text-warm-gray text-xs mt-0.5">{theme.emoji} {(seller.category || '').charAt(0).toUpperCase() + (seller.category || '').slice(1)} · 📍 {seller.city}{seller.state ? `, ${seller.state}` : ''}</p>
-                {seller.average_rating > 0 && (
-                  <p className="text-amber text-xs font-bold mt-0.5">⭐ {Number(seller.average_rating).toFixed(1)} · <span className="text-warm-gray font-normal">{seller.total_orders} orders</span></p>
-                )}
-              </div>
-            </div>
+          {/* Category pill — bottom left */}
+          <div className="absolute bottom-20 left-4 z-10">
+            <span className="text-[10px] bg-white/20 backdrop-blur-sm text-white px-3 py-1 rounded-full font-medium">
+              {theme.emoji} {catLabel}{cityState ? ` · ${cityState}` : ''}
+            </span>
+          </div>
+
+          {/* Business name + tagline on hero */}
+          <div className="absolute bottom-4 left-4 right-20 z-10">
+            <h1 className="font-display text-2xl font-black text-white leading-tight drop-shadow-lg">{seller.business_name}</h1>
             {seller.tagline && (
-              <p className="text-warm-gray text-xs italic mt-2 border-t border-border pt-2">&ldquo;{seller.tagline}&rdquo;</p>
+              <p className="text-white/80 text-sm italic mt-0.5 drop-shadow-md">{seller.tagline}</p>
+            )}
+          </div>
+
+          {/* Avatar — overlapping bottom right */}
+          <div className="absolute -bottom-9 right-5 z-20">
+            {seller.avatar_url ? (
+              <img src={seller.avatar_url} alt="" className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-white shadow-lg" />
+            ) : (
+              <div className="w-[72px] h-[72px] rounded-full bg-amber/10 flex items-center justify-center text-3xl border-[3px] border-white shadow-lg bg-white">{theme.emoji}</div>
             )}
           </div>
         </div>
 
-        {/* ═══ CONTACT BAR — routes to Klovi AI bot ═══ */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-white">
-          <a href={contactWaLink} target="_blank" rel="noopener noreferrer"
-            className="flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5">
-            💬 WhatsApp
-          </a>
-          {hasPhone && (
-            <a href={`tel:${seller.phone}`} className="w-11 h-11 bg-cream border border-border rounded-xl flex items-center justify-center text-base">📞</a>
+        {/* ═══ INFO STRIP — clean single line below hero ═══ */}
+        <div className="bg-white px-4 pt-3 pb-2.5 border-b border-[#e7e0d4]">
+          <div className="flex items-center gap-2 text-xs text-warm-gray flex-wrap pr-16">
+            {seller.average_rating > 0 && (
+              <span className="text-amber font-bold">⭐ {Number(seller.average_rating).toFixed(1)}</span>
+            )}
+            {seller.total_orders > 0 && (
+              <span>{seller.total_orders}+ orders</span>
+            )}
+            {cityState && <span>📍 {cityState}</span>}
+            <span className="text-[10px] bg-[#faf8f5] px-2 py-0.5 rounded-full font-medium">{fulfillmentLabel}</span>
+          </div>
+
+          {/* Description */}
+          {aboutText && (
+            <p className={`text-[13px] text-warm-gray mt-2 leading-relaxed ${isLongAbout ? 'line-clamp-2' : ''}`}>
+              {aboutText}
+            </p>
           )}
-          {hasInsta && (
-            <a href={`https://instagram.com/${seller.instagram_handle}`} target="_blank" rel="noopener noreferrer" className="w-11 h-11 bg-cream border border-border rounded-xl flex items-center justify-center text-base">📸</a>
-          )}
-          {hasFb && (
-            <a href={`https://facebook.com/${seller.facebook_handle}`} target="_blank" rel="noopener noreferrer" className="w-11 h-11 bg-cream border border-border rounded-xl flex items-center justify-center text-base">👍</a>
+
+          {/* Address — real address builds trust */}
+          {pickupAddress && (
+            <p className="text-[11px] text-warm-gray/70 mt-1.5">📍 {pickupAddress}</p>
           )}
         </div>
-        {(hasPhone || hasInsta) && (
-          <div className="px-4 py-1.5 text-[10px] text-warm-gray flex gap-2">
-            {hasPhone && <span>{seller.phone}</span>}
-            {hasInsta && <span>· @{seller.instagram_handle}</span>}
-          </div>
-        )}
 
-        {/* ═══ TRUST PILLS ═══ */}
-        {pills.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto px-4 py-2.5 scrollbar-hide">
-            {pills.map(p => (
-              <span key={p.label} className="inline-flex items-center bg-white text-ink text-[10px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap shadow-sm border border-border">
-                {p.icon} {p.label}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* ═══ CONTACT BAR ═══ */}
+        <div className="px-4 py-3 bg-[#faf8f5]">
+          <a href={contactWaLink} target="_blank" rel="noopener noreferrer"
+            className={`${hasPhone || hasInsta || hasFb ? '' : 'w-full'} flex-1 h-11 bg-green text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 shadow-sm`}>
+            💬 Message on WhatsApp
+          </a>
+          {(hasPhone || hasInsta || hasFb) && (
+            <div className="flex gap-2 mt-2">
+              {hasPhone && (
+                <a href={`tel:${seller.phone}`} className="flex-1 h-9 bg-white border border-[#e7e0d4] rounded-xl flex items-center justify-center text-xs text-warm-gray gap-1.5 font-medium">📞 {seller.phone}</a>
+              )}
+              {hasInsta && (
+                <a href={`https://instagram.com/${seller.instagram_handle}`} target="_blank" rel="noopener noreferrer" className="flex-1 h-9 bg-white border border-[#e7e0d4] rounded-xl flex items-center justify-center text-xs text-warm-gray gap-1 font-medium">📸 @{seller.instagram_handle}</a>
+              )}
+            </div>
+          )}
+          <p className="text-[10px] text-warm-gray/60 mt-1.5 text-center">Usually replies within a few hours</p>
+        </div>
 
         {/* ═══ PRODUCTS ═══ */}
         {productCount > 0 ? (
@@ -269,81 +250,81 @@ export default async function SellerStorefront({ params }: Props) {
             country={seller.country || ''}
           />
         ) : (
-          <div className="px-4 pb-4">
-            <div className="bg-white rounded-2xl border border-border p-10 text-center">
+          <div className="px-4 py-6">
+            <div className="bg-white rounded-2xl border border-[#e7e0d4] p-10 text-center">
               <span className="text-4xl block mb-3">{theme.emoji}</span>
               <p className="text-warm-gray text-sm mb-4">Products coming soon — order directly on WhatsApp</p>
-              {hasWa && <a href={waLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green text-white px-6 h-11 rounded-xl font-semibold text-sm">💬 Order on WhatsApp</a>}
+              <a href={waLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-green text-white px-6 h-11 rounded-xl font-semibold text-sm">💬 Order on WhatsApp</a>
             </div>
           </div>
         )}
 
-        {/* ═══ ABOUT ═══ */}
-        {seller.about_text && (
-          <div className="mx-4 mb-4 bg-white rounded-2xl border border-border p-4">
-            <p className="text-[10px] text-amber font-bold tracking-wider mb-2">OUR STORY</p>
-            <p className="text-sm text-warm-gray leading-relaxed line-clamp-4">{seller.about_text}</p>
+        {/* ═══ ABOUT SECTION (full) ═══ */}
+        {seller.about_text && seller.about_text.length > 120 && (
+          <div className="px-4 pb-4">
+            <div className="bg-white rounded-2xl border border-[#e7e0d4] p-5">
+              <p className="text-[10px] text-amber font-bold tracking-wider mb-2">ABOUT US</p>
+              <p className="text-[13px] text-warm-gray leading-relaxed">{seller.about_text}</p>
+            </div>
           </div>
         )}
 
         {/* ═══ REVIEWS ═══ */}
         {reviews && reviews.length > 0 && (
           <div className="px-4 pb-4">
-            <h2 className="font-display text-base font-black text-ink mb-2">⭐ Reviews ({reviews.length})</h2>
+            <h2 className="font-display text-base font-black text-ink mb-3">Reviews ({reviews.length})</h2>
             <div className="space-y-2">
               {reviews.map((r: any) => (
-                <div key={r.id} className="bg-white rounded-xl border border-border p-3">
+                <div key={r.id} className="bg-white rounded-xl border border-[#e7e0d4] p-3.5">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] font-medium text-ink">{r.customers?.name || 'Customer'}</span>
-                    <div className="flex">{[1,2,3,4,5].map(s => <span key={s} className={`text-[10px] ${s <= r.rating ? 'text-amber' : 'text-gray-200'}`}>★</span>)}</div>
+                    <span className="text-[12px] font-semibold text-ink">{r.customers?.name || 'Customer'}</span>
+                    <div className="flex gap-0.5">{[1,2,3,4,5].map(s => <span key={s} className={`text-xs ${s <= r.rating ? 'text-amber' : 'text-gray-200'}`}>★</span>)}</div>
                   </div>
-                  {r.comment && <p className="text-[11px] text-warm-gray">{r.comment}</p>}
+                  {r.comment && <p className="text-[12px] text-warm-gray leading-relaxed">{r.comment}</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ═══ TRUST ═══ */}
+        {/* ═══ TRUST GRID ═══ */}
         <div className="px-4 pb-4">
-          <div className="bg-white rounded-xl border border-border p-3 grid grid-cols-3 gap-2 text-center">
-            <div><span className="text-base block">🔒</span><span className="text-[9px] text-warm-gray block">Safe Payment</span></div>
-            <div><span className="text-base block">📍</span><span className="text-[9px] text-warm-gray block">{fulfillment.includes('delivery') ? 'Delivery' : 'Pickup'}</span></div>
-            <div><span className="text-base block">✅</span><span className="text-[9px] text-warm-gray block">{isVerified ? 'Verified' : 'Klovi Seller'}</span></div>
+          <div className="bg-white rounded-xl border border-[#e7e0d4] p-4 grid grid-cols-3 gap-3 text-center">
+            <div>
+              <span className="text-lg block mb-0.5">📍</span>
+              <span className="text-[12px] text-ink font-medium block leading-tight">{cityState || 'Local'}</span>
+              {pickupAddress && <span className="text-[10px] text-warm-gray block mt-0.5 leading-tight">{pickupAddress.substring(0, 40)}</span>}
+            </div>
+            <div>
+              <span className="text-lg block mb-0.5">⏰</span>
+              <span className="text-[12px] text-ink font-medium block">{fulfillmentLabel}</span>
+              <span className="text-[10px] text-warm-gray block mt-0.5">WhatsApp to order</span>
+            </div>
+            <div>
+              <span className="text-lg block mb-0.5">✅</span>
+              <span className="text-[12px] text-ink font-medium block">{isVerified ? 'Verified' : 'Klovi Seller'}</span>
+              <span className="text-[10px] text-warm-gray block mt-0.5">Trusted business</span>
+            </div>
           </div>
         </div>
 
         {/* ═══ FOOTER ═══ */}
-        <div className="px-4 pb-28 pt-4">
-          <div className="bg-white rounded-2xl border border-border p-5 text-center">
-            <p className="font-display text-sm font-bold text-ink mb-1">{seller.business_name}</p>
-            <p className="text-[11px] text-warm-gray mb-3">{(seller.category || '').charAt(0).toUpperCase() + (seller.category || '').slice(1)} · {seller.city}</p>
-            <div className="flex items-center justify-center gap-3 mb-3">
-              {contactWaNumber && (
-                <a href={contactWaLink} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-green/10 rounded-full flex items-center justify-center text-sm">💬</a>
-              )}
-              {hasPhone && (
-                <a href={`tel:${seller.phone}`} className="w-9 h-9 bg-cream rounded-full flex items-center justify-center text-sm border border-border">📞</a>
-              )}
-              {hasInsta && (
-                <a href={`https://instagram.com/${seller.instagram_handle}`} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-purple/10 rounded-full flex items-center justify-center text-sm">📸</a>
-              )}
-              {hasFb && (
-                <a href={`https://facebook.com/${seller.facebook_handle}`} target="_blank" rel="noopener noreferrer" className="w-9 h-9 bg-blue/10 rounded-full flex items-center justify-center text-sm">📘</a>
-              )}
-            </div>
-            <div className="border-t border-border pt-3">
-              <p className="text-[10px] text-warm-gray mb-1">🔗 kloviapp.com/{slug}</p>
-              <a href="https://kloviapp.com" target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-amber hover:underline">⚡ Powered by Klovi · Start your free store →</a>
-            </div>
+        <div className="px-4 pb-28 pt-2">
+          <div className="text-center py-4">
+            <p className="font-display text-sm font-bold text-ink">{seller.business_name}</p>
+            <p className="text-[11px] text-warm-gray mt-0.5">{catLabel}{cityState ? ` · ${cityState}` : ''}</p>
+            <p className="text-[10px] text-warm-gray/50 mt-1">kloviapp.com/{slug}</p>
+            <a href="https://kloviapp.com" target="_blank" rel="noopener noreferrer" className="inline-block text-[11px] font-semibold text-amber hover:underline mt-3">Powered by Klovi · Start your free store →</a>
           </div>
         </div>
 
         {/* ═══ STICKY BAR ═══ */}
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-50">
-          <div className="bg-white/95 backdrop-blur-xl border-t border-border px-4 py-2.5 flex gap-2.5">
-            <a href={waLink} target="_blank" rel="noopener noreferrer" className="flex-1 bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all">💬 Order on WhatsApp</a>
-            {hasPhone && <a href={`tel:${seller.phone}`} className="w-14 h-12 rounded-2xl border-2 border-border bg-white flex items-center justify-center text-warm-gray hover:text-amber text-sm font-medium">📞</a>}
+          <div className="bg-white/95 backdrop-blur-xl border-t border-[#e7e0d4] px-4 py-2">
+            <p className="text-[10px] text-warm-gray text-center mb-1">Ordering from {seller.business_name}</p>
+            <a href={waLink} target="_blank" rel="noopener noreferrer" className="w-full bg-green hover:bg-green/90 text-white h-12 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green/20 active:scale-[0.98] transition-all">
+              💬 Order on WhatsApp
+            </a>
           </div>
         </div>
       </div>
