@@ -118,6 +118,19 @@ export default function OnboardingPage() {
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [catalogFilter, setCatalogFilter] = useState<string | null>(null);
 
+  // Product edits — overrides keyed by product name (catalog) or custom ID
+  interface ProductEdit {
+    name: string; description: string; price: number; image: string | null;
+    category: string; isCustom?: boolean;
+  }
+  const [productEdits, setProductEdits] = useState<Record<string, ProductEdit>>({});
+  const [editingProduct, setEditingProduct] = useState<string | null>(null);  // name of product being edited
+  const [showAddCustom, setShowAddCustom] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customDesc, setCustomDesc] = useState('');
+  const [customPrice, setCustomPrice] = useState('');
+  const [customCategory, setCustomCategory] = useState('');
+
   // Screen 3 — Business
   const [address, setAddress] = useState('');
   const [addressDetails, setAddressDetails] = useState<any>(null);
@@ -215,6 +228,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     // Clear immediately — don't wait for async
     setSelectedProducts(new Set());
+    setProductEdits({});
     setCatalogFilter(null);
     setCatalogProducts([]);
 
@@ -367,19 +381,20 @@ export default function OnboardingPage() {
     }
     setSaving(true);
 
-    // Build product data to send to server
+    // Build product data — apply user edits over catalog defaults
     const products = Array.from(selectedProducts).map((name) => {
       const cp = catalogProducts.find(p => p.name === name);
+      const edit = productEdits[name];
       return {
-        name,
-        description: cp?.description || null,
-        price: cp?.priceMin || 0,
-        category: cp?.category || null,
+        name: edit?.name || name,
+        description: edit?.description ?? cp?.description ?? null,
+        price: edit?.price ?? cp?.priceMin ?? 0,
+        category: edit?.category ?? cp?.category ?? null,
         currency,
         variants: cp && cp.variants.length > 0
-          ? JSON.stringify(cp.variants.map(v => ({ label: v, price: cp.priceMin, qty: null })))
+          ? JSON.stringify(cp.variants.map(v => ({ label: v, price: edit?.price ?? cp.priceMin, qty: null })))
           : null,
-        images: cp?.imageUrl ? [cp.imageUrl] : null,
+        images: (edit?.image ? [edit.image] : cp?.imageUrl ? [cp.imageUrl] : null),
       };
     });
 
@@ -650,7 +665,7 @@ export default function OnboardingPage() {
             <div>
               <h2 className="font-display text-xl font-black text-ink mb-1">Pick your products</h2>
               <p className="text-warm-gray text-sm">
-                Tap to select — we'll set up pricing and photos for you
+                Tap to select. Long-press or tap the edit icon to customize.
               </p>
             </div>
 
@@ -679,54 +694,286 @@ export default function OnboardingPage() {
               </div>
             )}
 
+            {/* Add Custom Product button */}
+            <button
+              onClick={() => { setShowAddCustom(true); setCustomName(''); setCustomDesc(''); setCustomPrice(''); setCustomCategory(''); }}
+              className="w-full py-3 rounded-xl border-2 border-dashed border-amber/40 text-amber font-semibold text-sm hover:border-amber hover:bg-amber/5 transition-colors"
+            >
+              + Add Your Own Product
+            </button>
+
             {/* Product grid */}
             <div className="grid grid-cols-2 gap-3">
               {filteredProducts.map(p => {
                 const selected = selectedProducts.has(p.name);
+                const edit = productEdits[p.name];
+                const displayName = edit?.name || p.name;
+                const displayPrice = edit?.price ?? p.priceMin;
+                const displayImage = edit?.image ?? p.imageUrl;
                 return (
-                  <button
+                  <div
                     key={p.name}
-                    onClick={() => {
-                      setSelectedProducts(prev => {
-                        const next = new Set(prev);
-                        if (next.has(p.name)) next.delete(p.name);
-                        else next.add(p.name);
-                        return next;
-                      });
-                    }}
                     className={`relative rounded-xl overflow-hidden text-left transition-all ${
                       selected
                         ? 'ring-2 ring-amber shadow-md'
                         : 'border border-border hover:border-amber/50'
                     }`}
                   >
-                    <div className="aspect-square bg-cream relative overflow-hidden">
-                      {p.imageUrl ? (
-                        <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-3xl text-warm-gray/30">
-                          {NICHE_OPTIONS.find(n => n.id === niche)?.emoji || '📦'}
-                        </div>
-                      )}
-                      {selected && (
-                        <div className="absolute top-2 right-2 w-7 h-7 bg-amber rounded-full flex items-center justify-center text-white text-sm font-bold shadow">
-                          ✓
-                        </div>
-                      )}
+                    <button
+                      className="w-full text-left"
+                      onClick={() => {
+                        if (selected) {
+                          // Already selected — open edit sheet
+                          setEditingProduct(p.name);
+                        } else {
+                          setSelectedProducts(prev => { const next = new Set(prev); next.add(p.name); return next; });
+                        }
+                      }}
+                    >
+                      <div className="aspect-square bg-cream relative overflow-hidden">
+                        {displayImage ? (
+                          <img src={displayImage} alt={displayName} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-3xl text-warm-gray/30">
+                            {NICHE_OPTIONS.find(n => n.id === niche)?.emoji || '📦'}
+                          </div>
+                        )}
+                        {selected && (
+                          <div className="absolute top-2 right-2 w-7 h-7 bg-amber rounded-full flex items-center justify-center text-white text-sm font-bold shadow">
+                            ✓
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2.5 bg-white">
+                        <p className="font-medium text-ink text-sm truncate">{displayName}</p>
+                        <p className="text-warm-gray text-xs">{sym}{displayPrice}{!edit && p.priceMax > p.priceMin ? ` - ${sym}${p.priceMax}` : ''}</p>
+                      </div>
+                    </button>
+                    {/* Edit & deselect buttons for selected products */}
+                    {selected && (
+                      <div className="absolute top-2 left-2 flex gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditingProduct(p.name); }}
+                          className="w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-xs shadow border border-border"
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedProducts(prev => { const next = new Set(prev); next.delete(p.name); return next; });
+                            setProductEdits(prev => { const next = { ...prev }; delete next[p.name]; return next; });
+                          }}
+                          className="w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-xs shadow border border-border"
+                          title="Remove"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Show custom products in the grid */}
+              {Object.entries(productEdits).filter(([, e]) => e.isCustom).map(([key, cp]) => {
+                if (!selectedProducts.has(key)) return null;
+                return (
+                  <div key={key} className="relative rounded-xl overflow-hidden text-left ring-2 ring-amber shadow-md">
+                    <button className="w-full text-left" onClick={() => setEditingProduct(key)}>
+                      <div className="aspect-square bg-cream relative overflow-hidden">
+                        {cp.image ? (
+                          <img src={cp.image} alt={cp.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-3xl text-warm-gray/30">📦</div>
+                        )}
+                        <div className="absolute top-2 right-2 w-7 h-7 bg-amber rounded-full flex items-center justify-center text-white text-sm font-bold shadow">✓</div>
+                      </div>
+                      <div className="p-2.5 bg-white">
+                        <p className="font-medium text-ink text-sm truncate">{cp.name}</p>
+                        <p className="text-warm-gray text-xs">{sym}{cp.price}</p>
+                      </div>
+                    </button>
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      <button onClick={() => setEditingProduct(key)} className="w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-xs shadow border border-border">✏️</button>
+                      <button onClick={() => {
+                        setSelectedProducts(prev => { const next = new Set(prev); next.delete(key); return next; });
+                        setProductEdits(prev => { const next = { ...prev }; delete next[key]; return next; });
+                      }} className="w-7 h-7 bg-white/90 backdrop-blur rounded-full flex items-center justify-center text-xs shadow border border-border">✕</button>
                     </div>
-                    <div className="p-2.5 bg-white">
-                      <p className="font-medium text-ink text-sm truncate">{p.name}</p>
-                      <p className="text-warm-gray text-xs">{sym}{p.priceMin} - {sym}{p.priceMax}</p>
-                    </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
 
             {catalogProducts.length === 0 && niche === 'other' && (
               <div className="bg-white rounded-xl border border-border p-6 text-center">
-                <p className="text-warm-gray text-sm mb-2">We'll create a custom catalog for you</p>
-                <p className="text-ink text-sm font-medium">Just click Next — our AI will suggest products</p>
+                <p className="text-warm-gray text-sm mb-2">No catalog for this category yet</p>
+                <p className="text-ink text-sm font-medium">Use &quot;Add Your Own Product&quot; above to add items</p>
+              </div>
+            )}
+
+            {/* ── Edit Product Sheet ── */}
+            {editingProduct && (() => {
+              const cp = catalogProducts.find(p => p.name === editingProduct);
+              const edit = productEdits[editingProduct] || {
+                name: cp?.name || editingProduct,
+                description: cp?.description || '',
+                price: cp?.priceMin || 0,
+                image: cp?.imageUrl || null,
+                category: cp?.category || '',
+              };
+              const handleEditImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                  setProductEdits(prev => ({
+                    ...prev,
+                    [editingProduct]: { ...edit, image: reader.result as string },
+                  }));
+                };
+                reader.readAsDataURL(file);
+              };
+              return (
+                <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setEditingProduct(null)}>
+                  <div className="absolute inset-0 bg-black/40" />
+                  <div className="relative w-full max-w-[480px] bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <div className="sticky top-0 bg-white border-b border-border px-4 py-3 flex items-center justify-between z-10">
+                      <h3 className="font-semibold text-ink">Edit Product</h3>
+                      <button onClick={() => setEditingProduct(null)} className="text-warm-gray text-lg px-2">✕</button>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {/* Image */}
+                      <div>
+                        <label className="text-xs font-medium text-warm-gray block mb-1.5">Image</label>
+                        <div className="flex items-center gap-3">
+                          <div className="w-20 h-20 rounded-xl overflow-hidden bg-cream border border-border flex-shrink-0">
+                            {(edit.image || cp?.imageUrl) ? (
+                              <img src={edit.image || cp?.imageUrl || ''} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl text-warm-gray/30">📷</div>
+                            )}
+                          </div>
+                          <label className="px-4 py-2 bg-cream text-ink text-sm font-medium rounded-lg border border-border cursor-pointer hover:border-amber transition-colors">
+                            Change Image
+                            <input type="file" accept="image/*" onChange={handleEditImage} className="hidden" />
+                          </label>
+                        </div>
+                      </div>
+                      {/* Name */}
+                      <div>
+                        <label className="text-xs font-medium text-warm-gray block mb-1.5">Product Name</label>
+                        <input
+                          type="text" value={edit.name}
+                          onChange={e => setProductEdits(prev => ({ ...prev, [editingProduct]: { ...edit, name: e.target.value } }))}
+                          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                        />
+                      </div>
+                      {/* Description */}
+                      <div>
+                        <label className="text-xs font-medium text-warm-gray block mb-1.5">Description</label>
+                        <textarea
+                          value={edit.description} rows={3}
+                          onChange={e => setProductEdits(prev => ({ ...prev, [editingProduct]: { ...edit, description: e.target.value } }))}
+                          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber resize-none"
+                          placeholder="Describe your product..."
+                        />
+                      </div>
+                      {/* Price */}
+                      <div>
+                        <label className="text-xs font-medium text-warm-gray block mb-1.5">Price ({sym})</label>
+                        <input
+                          type="number" value={edit.price} min={0}
+                          onChange={e => setProductEdits(prev => ({ ...prev, [editingProduct]: { ...edit, price: Number(e.target.value) } }))}
+                          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                        />
+                      </div>
+                      {/* Category */}
+                      <div>
+                        <label className="text-xs font-medium text-warm-gray block mb-1.5">Category</label>
+                        <input
+                          type="text" value={edit.category}
+                          onChange={e => setProductEdits(prev => ({ ...prev, [editingProduct]: { ...edit, category: e.target.value } }))}
+                          className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                          placeholder="e.g., Sweets, Namkeen, Cookies..."
+                        />
+                      </div>
+                      {/* Save */}
+                      <button
+                        onClick={() => {
+                          setProductEdits(prev => ({ ...prev, [editingProduct]: edit }));
+                          setEditingProduct(null);
+                        }}
+                        className="w-full py-3 bg-amber text-white rounded-xl font-semibold text-base hover:bg-amber/90 transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Add Custom Product Sheet ── */}
+            {showAddCustom && (
+              <div className="fixed inset-0 z-[100] flex items-end justify-center" onClick={() => setShowAddCustom(false)}>
+                <div className="absolute inset-0 bg-black/40" />
+                <div className="relative w-full max-w-[480px] bg-white rounded-t-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="sticky top-0 bg-white border-b border-border px-4 py-3 flex items-center justify-between z-10">
+                    <h3 className="font-semibold text-ink">Add Your Own Product</h3>
+                    <button onClick={() => setShowAddCustom(false)} className="text-warm-gray text-lg px-2">✕</button>
+                  </div>
+                  <div className="p-4 space-y-4">
+                    <div>
+                      <label className="text-xs font-medium text-warm-gray block mb-1.5">Product Name *</label>
+                      <input type="text" value={customName} onChange={e => setCustomName(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                        placeholder="e.g., Aloo Tikki, Yoga Session..." />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-warm-gray block mb-1.5">Description</label>
+                      <textarea value={customDesc} onChange={e => setCustomDesc(e.target.value)} rows={3}
+                        className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber resize-none"
+                        placeholder="What makes it special?" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-warm-gray block mb-1.5">Price ({sym})</label>
+                      <input type="number" value={customPrice} onChange={e => setCustomPrice(e.target.value)} min={0}
+                        className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                        placeholder="0" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-warm-gray block mb-1.5">Category</label>
+                      <input type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)}
+                        className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber"
+                        placeholder="e.g., Sweets, Snacks, Coaching..." />
+                    </div>
+                    <button
+                      disabled={!customName.trim()}
+                      onClick={() => {
+                        const key = `custom_${Date.now()}`;
+                        setProductEdits(prev => ({
+                          ...prev,
+                          [key]: {
+                            name: customName.trim(),
+                            description: customDesc.trim(),
+                            price: Number(customPrice) || 0,
+                            image: null,
+                            category: customCategory.trim() || null as any,
+                            isCustom: true,
+                          },
+                        }));
+                        setSelectedProducts(prev => { const next = new Set(prev); next.add(key); return next; });
+                        setShowAddCustom(false);
+                      }}
+                      className="w-full py-3 bg-amber text-white rounded-xl font-semibold text-base hover:bg-amber/90 disabled:opacity-40 transition-colors"
+                    >
+                      Add Product
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
