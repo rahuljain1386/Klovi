@@ -54,7 +54,12 @@ export default function ProductsPage() {
       .eq('seller_id', seller.id)
       .order('sort_order');
 
-    setProducts((data as Product[]) || []);
+    // Normalize: products from onboarding have status='active' but no is_available field
+    const normalized = (data || []).map((p: any) => ({
+      ...p,
+      is_available: p.is_available ?? (p.status === 'active'),
+    }));
+    setProducts(normalized as Product[]);
   };
 
   const uploadImage = async (file: File, productId: string): Promise<string | null> => {
@@ -70,9 +75,13 @@ export default function ProductsPage() {
   };
 
   const toggleAvailability = async (product: Product) => {
+    const newAvail = !product.is_available;
     const supabase = createClient();
-    await supabase.from('products').update({ is_available: !product.is_available }).eq('id', product.id);
-    setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, is_available: !p.is_available } : p));
+    await supabase.from('products').update({
+      is_available: newAvail,
+      status: newAvail ? 'active' : 'inactive',
+    }).eq('id', product.id);
+    setProducts((prev) => prev.map((p) => p.id === product.id ? { ...p, is_available: newAvail } : p));
   };
 
   const adjustStock = async (product: Product, delta: number) => {
