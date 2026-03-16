@@ -187,47 +187,45 @@ export default function InboxPage() {
     if (!reply.trim() || !selectedConv || sending) return;
     setSending(true);
 
-    const supabase = createClient();
+    try {
+      // Send via server API (which also saves to DB using service role)
+      const res = await fetch('/api/send-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: selectedConv.customer?.phone,
+          message: reply,
+          channel: selectedConv.channel,
+          conversation_id: selectedConv.id,
+          seller_id: sellerId,
+        }),
+      });
 
-    const { data: msg } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: selectedConv.id,
-        seller_id: sellerId,
-        direction: 'outbound',
-        role: 'seller',
-        sender_type: 'seller',
-        body: reply,
-        channel: selectedConv.channel,
-        status: 'sent',
-      })
-      .select()
-      .single();
+      if (res.ok) {
+        // Add message to UI immediately
+        const now = new Date().toISOString();
+        setMessages(prev => [...prev, {
+          id: `temp-${Date.now()}`,
+          direction: 'outbound',
+          body: reply,
+          role: 'seller',
+          sender_type: 'seller',
+          intent: null,
+          confidence: null,
+          created_at: now,
+        }]);
+        setReply('');
 
-    if (msg) {
-      setMessages(prev => [...prev, msg as Message]);
-      setReply('');
-
-      if (selectedConv.customer?.phone) {
-        try {
-          await fetch('/api/send-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: selectedConv.customer.phone,
-              message: reply,
-              channel: selectedConv.channel,
-            }),
-          });
-        } catch (e) {
-          console.error('Failed to send via channel:', e);
-        }
+        // Update conversation list
+        setConversations(prev =>
+          prev.map(c => c.id === selectedConv.id
+            ? { ...c, last_message: reply, last_message_at: now }
+            : c
+          )
+        );
       }
-
-      await supabase
-        .from('conversations')
-        .update({ last_message: reply, last_message_at: new Date().toISOString() })
-        .eq('id', selectedConv.id);
+    } catch (e) {
+      console.error('Failed to send reply:', e);
     }
 
     setSending(false);

@@ -255,19 +255,17 @@ export default function BroadcastsPage() {
           </div>
 
           <div className="mb-4">
-            <p className="text-sm font-semibold text-ink mb-2">Channels</p>
-            <div className="flex gap-2">
-              {['whatsapp', 'sms', 'instagram'].map((ch) => (
-                <button
-                  key={ch}
-                  onClick={() => toggle(channels, ch, setChannels)}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium ${
-                    channels.includes(ch) ? 'bg-ink text-white' : 'bg-cream text-warm-gray border border-[#e7e0d4]'
-                  }`}
-                >
-                  {ch === 'whatsapp' ? 'WhatsApp' : ch === 'sms' ? 'SMS' : 'Instagram'}
-                </button>
-              ))}
+            <p className="text-sm font-semibold text-ink mb-2">Channel</p>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => toggle(channels, 'whatsapp', setChannels)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+                  channels.includes('whatsapp') ? 'bg-green text-white' : 'bg-cream text-warm-gray border border-[#e7e0d4]'
+                }`}
+              >
+                WhatsApp
+              </button>
+              <span className="text-xs text-warm-gray">Instagram & SMS coming soon</span>
             </div>
           </div>
 

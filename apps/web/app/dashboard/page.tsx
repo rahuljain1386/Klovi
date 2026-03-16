@@ -186,7 +186,7 @@ export default function DashboardHome() {
               done={shop.productCount > 0}
               label={t('dash.addProducts', shop.language)}
               subtitle={shop.productCount > 0 ? `${shop.productCount} ${t('dash.productsAdded', shop.language)}` : t('dash.listSell', shop.language)}
-              href="/dashboard/settings"
+              href="/dashboard/products"
             />
             <ChecklistItem
               done={shop.hasWhatsApp}

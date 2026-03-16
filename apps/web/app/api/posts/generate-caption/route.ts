@@ -14,7 +14,7 @@ export async function POST(request: Request) {
 
   if (!seller) return NextResponse.json({ error: 'Seller not found' }, { status: 404 });
 
-  const { template, product_names, occasion } = await request.json();
+  const { template, product_names, occasion, businessName, businessType } = await request.json();
 
   const templateDescriptions: Record<string, string> = {
     announcement: 'a general business announcement or new product launch',
@@ -22,9 +22,14 @@ export async function POST(request: Request) {
     seasonal: 'a seasonal special, holiday offer, or festive promotion',
     social_proof: 'a post highlighting customer reviews, testimonials, or milestones',
     restock: 'a restock announcement for popular items that were sold out',
+    event: 'an event or special offer announcement',
+    new_product: 'a new product launch',
   };
 
-  const prompt = `Write an engaging Instagram caption for ${seller.business_name} (${seller.category} business).
+  const name = seller.business_name || businessName || 'My Business';
+  const category = seller.category || businessType || '';
+
+  const prompt = `Write a SHORT Instagram caption for ${name} (${category} business).
 
 ${seller.description ? `About: ${seller.description}` : ''}
 
@@ -32,13 +37,15 @@ Post type: ${templateDescriptions[template] || template}
 ${product_names?.length ? `Products featured: ${product_names.join(', ')}` : ''}
 ${occasion ? `Occasion/context: ${occasion}` : ''}
 
-Requirements:
-- Keep it under 150 words
-- Use a warm, personal tone (like talking to a friend)
-- Include 2-3 relevant hashtags at the end
-- Include a clear call-to-action (order now, DM us, link in bio, etc.)
-- Make it feel authentic, not corporate
-- If relevant, add an emoji or two (but don't overdo it)`;
+STRICT requirements:
+- Maximum 3-4 lines of text (NOT an essay)
+- 1 catchy opening line
+- 1-2 lines of detail
+- 1 call-to-action line
+- 2-3 hashtags at the end
+- Total must be under 40 words (excluding hashtags)
+- Warm, personal tone
+- DO NOT write paragraphs or long descriptions`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -56,7 +63,7 @@ Requirements:
         { role: 'user', content: prompt },
       ],
       temperature: 0.8,
-      max_tokens: 300,
+      max_tokens: 120,
     }),
   });
 
