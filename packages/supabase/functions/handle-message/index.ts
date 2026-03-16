@@ -638,8 +638,8 @@ Deno.serve(async (req: Request) => {
 
     // 4b. FAST PATH — handle greetings and menu requests without AI (instant response)
     const bodyLower = body.trim().toLowerCase()
-    const isGreeting = /^(hi|hello|hey|hii+|helo|namaste|namaskar|hola|yo|sup)[\s!.?]*$/i.test(bodyLower)
-    const isMenuRequest = bodyLower === '1' || bodyLower === 'menu' || bodyLower === 'view menu'
+    const isGreeting = /^(hi|hello|hey|hii+|helo|namaste|namaskar|hola|yo|sup|good (morning|afternoon|evening)|gm|bhai|bhaiya|didi|madam|sir)[\s!.?]*$/i.test(bodyLower)
+    const isMenuRequest = /^(1|menu|view menu|full menu|show menu|can i (get|see) ?(the |full |your )?menu|what do you (have|sell|offer)|products|catalog|list|price list|menu please|menu ?(card|list)?[\s?!.]*)$/i.test(bodyLower)
     const isFirstMessage = history.length === 0
 
     if ((isGreeting || isFirstMessage) && !isMenuRequest) {
