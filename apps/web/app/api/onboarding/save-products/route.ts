@@ -46,24 +46,38 @@ export async function POST(request: NextRequest) {
   }
 
   // Insert new products using service role (bypasses RLS)
-  const inserts = products.map((p: any, i: number) => ({
-    seller_id: sellerId,
-    name: p.name,
-    description: p.description || null,
-    price: p.price || 0,
-    category: p.category || null,
-    quantity: p.quantity || null,
-    currency: p.currency || 'INR',
-    sort_order: i,
-    variants: p.variants || null,
-    images: p.images || null,
-    status: 'active',
-  }));
+  const buildInserts = (includeQuantity: boolean) => products.map((p: any, i: number) => {
+    const row: Record<string, unknown> = {
+      seller_id: sellerId,
+      name: p.name,
+      description: p.description || null,
+      price: p.price || 0,
+      category: p.category || null,
+      currency: p.currency || 'INR',
+      sort_order: i,
+      variants: p.variants || null,
+      images: p.images || null,
+      status: 'active',
+    };
+    if (includeQuantity && p.quantity) row.quantity = p.quantity;
+    return row;
+  });
 
-  const { data: inserted, error: insertError } = await supabase
+  // Try with quantity column first, fall back without it
+  let inserted;
+  let insertError;
+  ({ data: inserted, error: insertError } = await supabase
     .from('products')
-    .insert(inserts)
-    .select('id, name');
+    .insert(buildInserts(true))
+    .select('id, name'));
+
+  if (insertError?.message?.includes('quantity')) {
+    // quantity column doesn't exist yet — retry without it
+    ({ data: inserted, error: insertError } = await supabase
+      .from('products')
+      .insert(buildInserts(false))
+      .select('id, name'));
+  }
 
   if (insertError) {
     console.error('[save-products] Insert error:', insertError.message, '| code:', insertError.code, '| details:', insertError.details);
