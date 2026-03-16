@@ -380,12 +380,13 @@ export default function OnboardingPage() {
     const products = Array.from(selectedProducts).map((name) => {
       const cp = catalogProducts.find(p => p.name === name);
       const edit = productEdits[name];
-      // Variants: prefer user edits, then catalog defaults
+      // Variants: only save user-added sizes (not catalog flavor types)
       let variantsJson: string | null = null;
       if (edit?.variants && edit.variants.length > 0) {
-        variantsJson = JSON.stringify(edit.variants.map(v => ({ label: v.label, price: v.price, qty: null })));
-      } else if (cp && cp.variants.length > 0) {
-        variantsJson = JSON.stringify(cp.variants.map(v => ({ label: v, price: edit?.price ?? cp.priceMin, qty: null })));
+        const validVariants = edit.variants.filter(v => v.label.trim());
+        if (validVariants.length > 0) {
+          variantsJson = JSON.stringify(validVariants.map(v => ({ label: v.label, price: v.price, qty: null })));
+        }
       }
       return {
         name: edit?.name || name,
@@ -509,7 +510,7 @@ export default function OnboardingPage() {
     return {
       name: cp?.name || key, description: cp?.description || '',
       price: cp?.priceMin || 0, image: cp?.imageUrl || null,
-      category: cp?.category || '', variants: cp?.variants?.map((v: string) => ({ label: v, price: cp?.priceMin || 0 })) || [],
+      category: cp?.category || '', variants: [],
     };
   };
   const updateEdit = (key: string, patch: Partial<ProductEdit>) => {
@@ -803,22 +804,35 @@ export default function OnboardingPage() {
                           </button>
                         </div>
 
-                        {/* Variants */}
+                        {/* Sizes / Pack sizes */}
                         <div className="px-3 pb-3">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[11px] font-medium text-warm-gray">Variants</span>
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <span className="text-[11px] font-medium text-warm-gray">Sizes</span>
+                            {/* Quick-add common sizes */}
+                            {['250gm', '500gm', '1kg', '2kg'].map(size => {
+                              const already = (edit.variants || []).some(v => v.label === size);
+                              if (already) return null;
+                              return (
+                                <button key={size} onClick={() => {
+                                  const variants = [...(edit.variants || []), { label: size, price: edit.price }];
+                                  updateEdit(key, { variants });
+                                }} className="px-2 py-0.5 text-[10px] bg-cream border border-border rounded-full text-warm-gray hover:border-amber hover:text-amber transition-colors">
+                                  + {size}
+                                </button>
+                              );
+                            })}
                             <button onClick={() => {
                               const variants = [...(edit.variants || []), { label: '', price: edit.price }];
                               updateEdit(key, { variants });
                             }} className="text-[11px] text-amber font-medium hover:underline">
-                              + Add
+                              + Custom
                             </button>
                           </div>
                           {(edit.variants || []).length > 0 && (
                             <div className="space-y-1.5">
                               {edit.variants.map((v, vi) => (
                                 <div key={vi} className="flex items-center gap-2">
-                                  <input type="text" value={v.label} placeholder="e.g., 500gm, 1kg"
+                                  <input type="text" value={v.label} placeholder="e.g., 250gm, 500gm, 1kg"
                                     onChange={e => {
                                       const variants = [...edit.variants]; variants[vi] = { ...v, label: e.target.value };
                                       updateEdit(key, { variants });
