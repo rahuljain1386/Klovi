@@ -444,8 +444,37 @@ export default function OnboardingPage() {
     setSaving(false);
     setStep('business');
 
-    // Start AI profile + knowledge base generation in background
+    // Start AI profile + knowledge base + ingredients generation in background
     generateAiProfile();
+
+    // Generate ingredients via AI (fire and update product edits when done)
+    if (isFoodNiche) {
+      fetch('/api/onboarding/generate-ingredients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: effectiveSellerId }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.products && Array.isArray(data.products)) {
+            // Update local product edits with AI-generated ingredients
+            setProductEdits(prev => {
+              const next = { ...prev };
+              for (const item of data.products) {
+                const key = Array.from(selectedProducts).find(
+                  k => k.toLowerCase() === item.name?.toLowerCase() || (prev[k]?.name || '').toLowerCase() === item.name?.toLowerCase()
+                );
+                if (key && item.ingredients) {
+                  next[key] = { ...getEdit(key), ...next[key], ingredients: next[key]?.ingredients || item.ingredients };
+                }
+              }
+              return next;
+            });
+          }
+        })
+        .catch(() => {});
+    }
+
     // Generate FAQ/knowledge base for WhatsApp bot
     setKbLoading(true);
     fetch('/api/onboarding/generate-knowledge', {
@@ -843,14 +872,39 @@ export default function OnboardingPage() {
                                 className="flex-1 px-2 py-1 text-xs text-warm-gray border border-transparent hover:border-border focus:border-amber rounded-lg focus:outline-none"
                                 placeholder="Category" />
                             </div>
-                            {/* Ingredients — for food niches */}
+                            {/* Ingredients — chip/tag UI for food niches */}
                             {isFoodNiche && (
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-[10px] text-warm-gray mt-1 flex-shrink-0">Ingredients:</span>
-                                <input type="text" value={edit.ingredients}
-                                  onChange={e => updateEdit(key, { ingredients: e.target.value })}
-                                  className="flex-1 px-2 py-1 text-[11px] text-warm-gray border border-transparent hover:border-border focus:border-amber rounded-lg focus:outline-none"
-                                  placeholder="e.g., besan, ghee, sugar, cardamom, almonds" />
+                              <div>
+                                <span className="text-[10px] text-warm-gray">Ingredients:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {(edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean).map((ing, ii) => (
+                                    <span key={ii} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-cream border border-border rounded-full text-[10px] text-ink">
+                                      {ing}
+                                      <button onClick={() => {
+                                        const parts = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                                        parts.splice(ii, 1);
+                                        updateEdit(key, { ingredients: parts.join(', ') });
+                                      }} className="text-warm-gray hover:text-rose ml-0.5 text-xs leading-none">&times;</button>
+                                    </span>
+                                  ))}
+                                  <input
+                                    type="text"
+                                    className="w-24 px-1.5 py-0.5 text-[10px] border border-dashed border-border rounded-full focus:outline-none focus:border-amber text-ink"
+                                    placeholder="+ add"
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' || e.key === ',') {
+                                        e.preventDefault();
+                                        const val = (e.target as HTMLInputElement).value.trim().replace(/,$/,'');
+                                        if (val) {
+                                          const current = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                                          current.push(val);
+                                          updateEdit(key, { ingredients: current.join(', ') });
+                                          (e.target as HTMLInputElement).value = '';
+                                        }
+                                      }
+                                    }}
+                                  />
+                                </div>
                               </div>
                             )}
                           </div>
