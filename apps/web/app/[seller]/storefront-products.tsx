@@ -108,7 +108,16 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
   const currSym = isIndia ? '₹' : '$';
   const currency = isIndia ? 'INR' : 'USD';
 
-  const useGridLayout = ['bakery', 'sweets', 'snacks', 'pickle', 'chocolate', 'jewelry', 'candle', 'plants', 'beauty', 'hamper', 'healthy', 'masala', 'food'].some(c => category.toLowerCase().includes(c));
+  // Detect layout from seller category first, then from product categories as fallback
+  const gridCategories = ['bakery', 'sweets', 'snacks', 'pickle', 'chocolate', 'jewelry', 'candle', 'plants', 'beauty', 'hamper', 'healthy', 'masala', 'food'];
+  const serviceCategories = ['stitching', 'tailoring', 'tutoring', 'coaching', 'nutrition', 'healing', 'spiritual', 'service', 'beauty', 'fitness', 'yoga', 'meditation', 'counseling', 'consulting', 'therapy'];
+
+  // Check if products are actually services despite seller category being food/product
+  const productCats = products.map(p => (p.category || '').toLowerCase()).filter(Boolean);
+  const productsAreServices = productCats.length > 0 && productCats.every(pc => serviceCategories.some(sc => pc.includes(sc)));
+  const effectiveCategory = productsAreServices ? productCats[0] : category.toLowerCase();
+
+  const useGridLayout = !productsAreServices && gridCategories.some(c => category.toLowerCase().includes(c));
 
   const allCategories = ['All', ...Array.from(new Set(products.map(p => p.category).filter(Boolean) as string[]))];
   const showTabs = allCategories.length > 2;
@@ -204,7 +213,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
     if (selectedProduct && sheetOpen) generateOrderMessage(selectedProduct, selectedVariant, quantity);
   }, [selectedVariant, quantity]);
 
-  const isService = ['stitching', 'tailoring', 'tutoring', 'coaching', 'nutrition', 'healing', 'service'].some(c => category.toLowerCase().includes(c));
+  const isService = productsAreServices || serviceCategories.some(c => category.toLowerCase().includes(c));
 
   return (
     <div>
@@ -239,7 +248,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
 
       {/* Products heading */}
       <div className="px-4 pt-4 pb-1">
-        <h2 className="font-display text-base font-black text-ink">{useGridLayout ? 'Our Menu' : 'Our Services'}</h2>
+        <h2 className="font-display text-base font-black text-ink">{useGridLayout ? 'Our Menu' : productsAreServices ? 'Our Services' : 'Our Products'}</h2>
       </div>
 
       {/* Product grid/list */}
