@@ -2,6 +2,19 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+/** Resize Supabase Storage images via transform API — converts 2MB PNGs to ~80KB WebP */
+function optimizeImg(url: string | null, width: number): string | null {
+  if (!url) return null;
+  // Only transform Supabase Storage URLs
+  if (url.includes('.supabase.co/storage/v1/object/public/')) {
+    return url.replace(
+      '/storage/v1/object/public/',
+      `/storage/v1/render/image/public/`
+    ) + `?width=${width}&resize=contain&format=origin`;
+  }
+  return url;
+}
+
 interface Variant { label: string; price: number }
 
 interface Product {
@@ -271,7 +284,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
                     {img ? (
                       <>
                         {!loadedImages[product.id] && <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-pulse" />}
-                        <img src={img} alt={product.name} className={`w-full h-full object-cover transition-opacity duration-300 ${loadedImages[product.id] ? 'opacity-100' : 'opacity-0'}`} loading="lazy" onLoad={() => setLoadedImages(prev => ({ ...prev, [product.id]: true }))} />
+                        <img src={optimizeImg(img, 400) || img} alt={product.name} className={`w-full h-full object-cover transition-opacity duration-300 ${loadedImages[product.id] ? 'opacity-100' : 'opacity-0'}`} loading="lazy" onLoad={() => setLoadedImages(prev => ({ ...prev, [product.id]: true }))} />
                       </>
                     ) : (
                       <div className={`w-full h-full ${catIcon.bg} flex flex-col items-center justify-center gap-1`}>
@@ -317,7 +330,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
                     {/* Left: image — larger */}
                     <div className="w-24 h-24 flex-shrink-0 overflow-hidden">
                       {img ? (
-                        <img src={img} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
+                        <img src={optimizeImg(img, 200) || img} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className={`w-full h-full ${catIcon.bg} flex items-center justify-center`}>
                           <span className="text-2xl">{catIcon.icon}</span>
@@ -396,7 +409,7 @@ export default function StorefrontProducts({ products, seller, waNumber, busines
               const catIcon = getCatIcon(selectedProduct.name, '🛍️');
               return img ? (
                 <div className="w-full h-60 overflow-hidden relative">
-                  <img src={img} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  <img src={optimizeImg(img, 480) || img} alt={selectedProduct.name} className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className={`w-full h-40 ${catIcon.bg} flex items-center justify-center`}>

@@ -76,6 +76,15 @@ function getBgQuery(seller: { category: string; city?: string }) {
   return match ? CATEGORY_BG_QUERIES[match] : `${seller.category} indian handmade beautiful`;
 }
 
+/** Resize Supabase Storage images via transform API */
+function optimizeImg(url: string | null, width: number): string | null {
+  if (!url) return null;
+  if (url.includes('.supabase.co/storage/v1/object/public/')) {
+    return url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/') + `?width=${width}&resize=contain&format=origin`;
+  }
+  return url;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { seller: slug } = await params;
   const supabase = getPublicClient() || await createClient();
@@ -153,7 +162,7 @@ export default async function SellerStorefront({ params }: Props) {
         <div className="relative h-[300px] overflow-hidden">
           {heroUrl ? (
             <>
-              <img src={heroUrl} alt="" className="w-full h-full object-cover" loading="eager" />
+              <img src={optimizeImg(heroUrl, 480) || heroUrl} alt="" className="w-full h-full object-cover" loading="eager" />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/10 to-black/70" />
             </>
           ) : (
@@ -187,7 +196,7 @@ export default async function SellerStorefront({ params }: Props) {
           {/* Avatar — overlapping bottom right */}
           <div className="absolute -bottom-9 right-5 z-20">
             {seller.avatar_url ? (
-              <img src={seller.avatar_url} alt="" className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-white shadow-lg" />
+              <img src={optimizeImg(seller.avatar_url, 144) || seller.avatar_url} alt="" className="w-[72px] h-[72px] rounded-full object-cover border-[3px] border-white shadow-lg" />
             ) : (
               <div className="w-[72px] h-[72px] rounded-full bg-amber/10 flex items-center justify-center text-3xl border-[3px] border-white shadow-lg bg-white">{theme.emoji}</div>
             )}
