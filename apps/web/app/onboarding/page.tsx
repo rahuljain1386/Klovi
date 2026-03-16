@@ -502,6 +502,28 @@ export default function OnboardingPage() {
   const isIndia = countryCode === 'IN';
   const sym = isIndia ? '₹' : '$';
 
+  // ─── Product edit helpers (used in products step) ─────────────────────
+  const getEdit = (key: string): ProductEdit => {
+    if (productEdits[key]) return productEdits[key];
+    const cp = catalogProducts.find(p => p.name === key);
+    return {
+      name: cp?.name || key, description: cp?.description || '',
+      price: cp?.priceMin || 0, image: cp?.imageUrl || null,
+      category: cp?.category || '', variants: cp?.variants?.map((v: string) => ({ label: v, price: cp?.priceMin || 0 })) || [],
+    };
+  };
+  const updateEdit = (key: string, patch: Partial<ProductEdit>) => {
+    setProductEdits(prev => ({ ...prev, [key]: { ...getEdit(key), ...patch } }));
+  };
+  const handleProductImageUpload = (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => updateEdit(key, { image: reader.result as string });
+    reader.readAsDataURL(file);
+  };
+  const selectedKeys = Array.from(selectedProducts);
+
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-cream">
@@ -660,30 +682,7 @@ export default function OnboardingPage() {
         {/* ═══════════════════════════════════════════════════════════════ */}
         {/* SCREEN 2 — Pick Your Products                                 */}
         {/* ═══════════════════════════════════════════════════════════════ */}
-        {step === 'products' && (() => {
-          // Helper: get or create edit object for a product
-          const getEdit = (key: string): ProductEdit => {
-            if (productEdits[key]) return productEdits[key];
-            const cp = catalogProducts.find(p => p.name === key);
-            return {
-              name: cp?.name || key, description: cp?.description || '',
-              price: cp?.priceMin || 0, image: cp?.imageUrl || null,
-              category: cp?.category || '', variants: cp?.variants?.map((v: string) => ({ label: v, price: cp?.priceMin || 0 })) || [],
-            };
-          };
-          const updateEdit = (key: string, patch: Partial<ProductEdit>) => {
-            setProductEdits(prev => ({ ...prev, [key]: { ...getEdit(key), ...patch } }));
-          };
-          const handleImageUpload = (key: string, e: React.ChangeEvent<HTMLInputElement>) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onloadend = () => updateEdit(key, { image: reader.result as string });
-            reader.readAsDataURL(file);
-          };
-          // All selected keys (catalog + custom)
-          const selectedKeys = Array.from(selectedProducts);
-          return (
+        {step === 'products' && (
           <div className="px-4 pb-32 space-y-4">
             <div>
               <h2 className="font-display text-xl font-black text-ink mb-1">Pick your products</h2>
@@ -769,7 +768,7 @@ export default function OnboardingPage() {
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                                 <span className="text-white text-[10px] font-medium opacity-0 group-hover:opacity-100">Change</span>
                               </div>
-                              <input type="file" accept="image/*" onChange={e => handleImageUpload(key, e)} className="hidden" />
+                              <input type="file" accept="image/*" onChange={e => handleProductImageUpload(key, e)} className="hidden" />
                             </label>
                           </div>
 
@@ -875,8 +874,6 @@ export default function OnboardingPage() {
               </div>
             </div>
           </div>
-          );
-        })()
         )}
 
         {/* ═══════════════════════════════════════════════════════════════ */}
