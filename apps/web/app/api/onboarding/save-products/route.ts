@@ -46,7 +46,8 @@ export async function POST(request: NextRequest) {
   }
 
   // Insert new products using service role (bypasses RLS)
-  const buildInserts = (includeQuantity: boolean) => products.map((p: any, i: number) => {
+  // Try with all optional columns, progressively remove ones that don't exist
+  const buildInserts = (opts: { quantity: boolean; ingredients: boolean }) => products.map((p: any, i: number) => {
     const row: Record<string, unknown> = {
       seller_id: sellerId,
       name: p.name,
@@ -59,23 +60,32 @@ export async function POST(request: NextRequest) {
       images: p.images || null,
       status: 'active',
     };
-    if (includeQuantity && p.quantity) row.quantity = p.quantity;
+    if (opts.quantity && p.quantity) row.quantity = p.quantity;
+    if (opts.ingredients && p.ingredients) row.ingredients = p.ingredients;
     return row;
   });
 
-  // Try with quantity column first, fall back without it
+  // Try with all columns, gracefully fall back if columns don't exist
   let inserted;
   let insertError;
   ({ data: inserted, error: insertError } = await supabase
     .from('products')
-    .insert(buildInserts(true))
+    .insert(buildInserts({ quantity: true, ingredients: true }))
     .select('id, name'));
+
+  if (insertError?.message?.includes('ingredients')) {
+    // ingredients column doesn't exist yet — retry without it
+    ({ data: inserted, error: insertError } = await supabase
+      .from('products')
+      .insert(buildInserts({ quantity: true, ingredients: false }))
+      .select('id, name'));
+  }
 
   if (insertError?.message?.includes('quantity')) {
     // quantity column doesn't exist yet — retry without it
     ({ data: inserted, error: insertError } = await supabase
       .from('products')
-      .insert(buildInserts(false))
+      .insert(buildInserts({ quantity: false, ingredients: false }))
       .select('id, name'));
   }
 

@@ -112,7 +112,7 @@ async function getSellerContext(sellerId: string) {
 
   const { data: products } = await supabase
     .from('products')
-    .select('id, name, price, description, status, variants')
+    .select('id, name, price, description, status, variants, ingredients')
     .eq('seller_id', sellerId)
     .eq('status', 'active')
     .limit(50)
@@ -130,6 +130,7 @@ function buildProductCatalog(products: any[]): string {
   return products.map((p) => {
     let line = `- ${p.name}: ${p.price}`
     if (p.description) line += ` — ${p.description}`
+    if (p.ingredients) line += ` [Ingredients: ${p.ingredients}]`
     line += ` (ID: ${p.id})`
     // Parse variants if available
     try {

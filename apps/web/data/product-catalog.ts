@@ -20,6 +20,7 @@ export interface CatalogProduct {
   priceMin: number;
   priceMax: number;
   dietary: string[];
+  ingredients?: string;
   pexelsQuery?: string; // Better search term for Pexels photos
 }
 
@@ -57,6 +58,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 500,
     priceMax: 900,
     dietary: ['Vegetarian', 'Eggless Available'],
+    ingredients: 'Maida (refined flour), cocoa powder, butter, eggs/curd (eggless), sugar, baking powder, vanilla extract, dark chocolate ganache, milk',
   },
   {
     name: 'Cupcakes Box',
@@ -70,6 +72,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 700,
     dietary: ['Vegetarian'],
+    ingredients: 'Maida (refined flour), butter, sugar, eggs/curd (eggless), cocoa powder, vanilla extract, whipped cream, food color, sprinkles',
   },
   {
     name: 'Brownies Box',
@@ -83,6 +86,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 350,
     priceMax: 700,
     dietary: ['Vegetarian', 'Eggless Available'],
+    ingredients: 'Dark chocolate, butter, sugar, eggs/curd (eggless), maida (refined flour), cocoa powder, walnuts, baking powder, vanilla extract, salt',
   },
   {
     name: 'Cookies Box',
@@ -96,6 +100,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 600,
     dietary: ['Vegetarian'],
+    ingredients: 'Butter, powdered sugar, maida (refined flour), eggs/curd, vanilla extract, chocolate chips, oats, raisins, cashews, baking soda',
   },
   {
     name: 'Banana Bread',
@@ -109,6 +114,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 350,
     dietary: ['Vegetarian'],
+    ingredients: 'Ripe bananas, whole wheat flour/maida, butter, sugar/honey, eggs/curd, baking soda, walnuts, cinnamon, vanilla extract, salt',
   },
   {
     name: 'Cheesecake',
@@ -122,6 +128,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 500,
     priceMax: 1200,
     dietary: ['Vegetarian'],
+    ingredients: 'Cream cheese, digestive biscuits, butter, sugar, eggs, sour cream, vanilla extract, lemon zest, fresh fruit compote, gelatin/agar',
   },
   {
     name: 'Muffins Box',
@@ -135,6 +142,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 280,
     priceMax: 500,
     dietary: ['Vegetarian', 'Eggless Available'],
+    ingredients: 'Maida (refined flour), butter, sugar, eggs/curd (eggless), milk, baking powder, vanilla extract, blueberries, cocoa powder, banana',
   },
   {
     name: 'Macarons Box',
@@ -148,6 +156,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 400,
     priceMax: 900,
     dietary: ['Vegetarian', 'Gluten-Free Available'],
+    ingredients: 'Almond flour, powdered sugar, egg whites, butter, heavy cream, dark chocolate ganache, rose water, pistachio paste, mango puree, food color',
   },
   {
     name: 'Sourdough Bread',
@@ -161,6 +170,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 500,
     dietary: ['Vegan', 'Vegetarian'],
+    ingredients: 'Bread flour (maida), sourdough starter (wild yeast culture), water, salt, multigrain seeds (flax, sunflower, sesame), olive oil',
   },
   {
     name: 'Cake Pops',
@@ -174,6 +184,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 600,
     dietary: ['Vegetarian'],
+    ingredients: 'Cake crumbs (maida, butter, sugar, eggs/curd), cream cheese frosting, chocolate coating (cocoa butter, sugar), sprinkles, candy melts, food color',
   },
 
   // ── Tiffin Service (7 products) ──
@@ -189,6 +200,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 80,
     priceMax: 150,
     dietary: ['Vegetarian'],
+    ingredients: 'Seasonal vegetables, toor dal, basmati rice, whole wheat atta (roti), mustard oil/ghee, turmeric, cumin, coriander, garam masala, salt, green chillies',
   },
   {
     name: 'Diet Tiffin',
@@ -202,6 +214,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 200,
     dietary: ['Vegetarian', 'Diabetic Friendly'],
+    ingredients: 'Millets (ragi, jowar, bajra), steamed vegetables, moong dal, brown rice, olive oil/ghee, flaxseeds, turmeric, minimal salt, lemon',
   },
   {
     name: 'South Indian Tiffin',
@@ -215,6 +228,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 80,
     priceMax: 160,
     dietary: ['Vegetarian', 'Vegan'],
+    ingredients: 'Rice batter, urad dal batter (fermented), sambhar (toor dal, tamarind, drumstick, vegetables), coconut chutney, mustard seeds, curry leaves, groundnut oil',
   },
   {
     name: 'Non-Veg Tiffin',
@@ -228,6 +242,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 100,
     priceMax: 180,
     dietary: ['Non-Vegetarian'],
+    ingredients: 'Chicken/eggs/mutton, basmati rice, whole wheat atta (roti), onion, tomato, ginger-garlic paste, mustard oil, garam masala, turmeric, red chilli powder, coriander',
   },
   {
     name: 'Full Thali',
@@ -241,6 +256,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 200,
     dietary: ['Vegetarian'],
+    ingredients: 'Toor dal, seasonal vegetables (2 sabzi), basmati rice, whole wheat atta (4 roti), ghee, papad, salad (cucumber, carrot, onion), sweet (kheer/halwa), pickle, garam masala, turmeric',
   },
   {
     name: 'Student Meal Plan',
@@ -254,6 +270,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 1800,
     priceMax: 3500,
     dietary: ['Vegetarian'],
+    ingredients: 'Seasonal vegetables, dal (toor/moong), basmati rice, whole wheat atta (roti), mustard oil/ghee, onion, tomato, ginger, garlic, cumin, turmeric, salt, green chillies',
   },
   {
     name: 'Office Catering Box',
@@ -267,6 +284,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 90,
     priceMax: 150,
     dietary: ['Vegetarian', 'Non-Vegetarian'],
+    ingredients: 'Seasonal vegetables/chicken, dal, basmati rice, whole wheat atta (roti), cooking oil, onion, tomato, garam masala, turmeric, cumin, salt, pickle, salad',
   },
 
   // ── Homemade Sweets (8 products) ──
@@ -282,6 +300,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 500,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Besan (gram flour), ghee, powdered sugar, cardamom, almonds, pistachios',
     pexelsQuery: 'besan ladoo indian sweet',
   },
   {
@@ -296,6 +315,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 550,
     dietary: ['Vegetarian'],
+    ingredients: 'Besan (gram flour), sugar, ghee, cardamom, saffron, rose water, groundnut oil (for frying), pistachios',
     pexelsQuery: 'motichoor ladoo indian sweet orange',
   },
   {
@@ -310,6 +330,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 350,
     priceMax: 800,
     dietary: ['Vegetarian', 'Vegan'],
+    ingredients: 'Kaju (cashew nuts), sugar, cardamom, rose water, silver vark (edible silver leaf), saffron (kesar variant)',
     pexelsQuery: 'kaju katli barfi indian sweet',
   },
   {
@@ -324,6 +345,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 450,
     dietary: ['Vegetarian'],
+    ingredients: 'Red carrots (gajar), full cream milk, khoya (mawa), ghee, sugar, cardamom, almonds, cashews, pistachios, raisins',
     pexelsQuery: 'gajar halwa carrot dessert indian',
   },
   {
@@ -338,6 +360,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 400,
     priceMax: 900,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Almonds (badam), cashews (kaju), pistachios (pista), khoya (mawa), ghee, sugar, cardamom, saffron, silver vark',
     pexelsQuery: 'dry fruit barfi indian sweet nuts',
   },
   {
@@ -352,6 +375,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 500,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Besan (gram flour), ghee (generous amount), sugar, cardamom, groundnut oil',
     pexelsQuery: 'mysore pak indian sweet ghee',
   },
   {
@@ -366,6 +390,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 500,
     dietary: ['Vegetarian'],
+    ingredients: 'Khoya (mawa), sugar, cardamom, saffron (kesar), pistachios, milk, ghee',
     pexelsQuery: 'peda milk sweet saffron indian',
   },
   {
@@ -380,6 +405,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 400,
     dietary: ['Vegetarian'],
+    ingredients: 'Khoya (mawa), maida (refined flour), baking soda, ghee (for frying), sugar syrup, rose water, cardamom, saffron',
     pexelsQuery: 'gulab jamun indian dessert syrup',
   },
 
@@ -396,6 +422,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 250,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Rice flour, urad dal flour, sesame seeds (til), cumin seeds, ajwain (carom seeds), red chilli powder, asafoetida (hing), butter, groundnut oil, salt',
     pexelsQuery: 'chakli indian spiral snack',
   },
   {
@@ -410,6 +437,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 220,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Flattened rice (poha), peanuts, curry leaves, turmeric, mustard seeds, green chilli, salt, groundnut oil, raisins, cashews, sugar (sweet variant)',
     pexelsQuery: 'indian savory snack mix namkeen',
   },
   {
@@ -424,6 +452,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 300,
     dietary: ['Vegetarian'],
+    ingredients: 'Maida (refined flour)/whole wheat atta, ghee, ajwain (carom seeds), black pepper, cumin seeds, salt, groundnut oil (for frying)',
     pexelsQuery: 'indian fried crispy biscuit snack',
   },
   {
@@ -438,6 +467,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 130,
     priceMax: 250,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Rice flour, urad dal flour, sesame seeds (til), cumin seeds, asafoetida (hing), butter, salt, groundnut oil',
     pexelsQuery: 'murukku south indian snack',
   },
   {
@@ -452,6 +482,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 100,
     priceMax: 200,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Besan (gram flour), groundnut oil, red chilli powder, turmeric, asafoetida (hing), ajwain (carom seeds), black pepper, salt, methi (fenugreek) leaves (methi sev variant)',
     pexelsQuery: 'sev bhujia indian namkeen snack',
   },
   {
@@ -466,6 +497,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 250,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Urad dal flour, black pepper, cumin seeds, asafoetida (hing), salt, groundnut oil, garlic (garlic variant), moong dal flour (moong variant)',
     pexelsQuery: 'papadum indian crispy flatbread',
   },
   {
@@ -480,6 +512,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 500,
     dietary: ['Vegetarian'],
+    ingredients: 'Maida (refined flour), khoya (mawa), sugar, almonds, cashews, raisins, coconut (desiccated), cardamom, ghee, groundnut oil (for frying)',
     pexelsQuery: 'gujiya indian sweet pastry diwali',
   },
   {
@@ -494,6 +527,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 100,
     priceMax: 200,
     dietary: ['Vegetarian', 'Vegan'],
+    ingredients: 'Whole wheat atta, jaggery (gur), desiccated coconut, fennel seeds (saunf), ghee/groundnut oil, cardamom, sesame seeds',
     pexelsQuery: 'indian jaggery wheat cookies traditional',
   },
 
@@ -510,6 +544,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 400,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Raw mangoes (kairi), mustard oil, red chilli powder, turmeric, fenugreek seeds (methi dana), fennel seeds (saunf), mustard seeds (rai), salt, asafoetida (hing)',
   },
   {
     name: 'Lemon Pickle',
@@ -523,6 +558,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 350,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Fresh lemons (nimbu), mustard oil, red chilli powder, turmeric, fenugreek seeds (methi dana), salt, mustard seeds (rai), asafoetida (hing)',
   },
   {
     name: 'Garlic Pickle',
@@ -536,6 +572,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 400,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Whole garlic cloves (lahsun), mustard oil, red chilli powder, turmeric, fenugreek seeds (methi dana), mustard seeds (rai), salt, vinegar, asafoetida (hing)',
   },
   {
     name: 'Amla Pickle',
@@ -549,6 +586,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 380,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Amla (Indian gooseberry), mustard oil, red chilli powder, turmeric, fenugreek seeds (methi dana), mustard seeds (rai), salt, jaggery (sweet variant), fennel seeds (saunf)',
   },
   {
     name: 'Green Chilli Pickle',
@@ -562,6 +600,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 300,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Green chillies (hari mirch), mustard oil, mustard seeds (rai), fennel seeds (saunf), fenugreek seeds (methi dana), turmeric, salt, amchur (dry mango powder), asafoetida (hing)',
   },
   {
     name: 'Mixed Vegetable Pickle',
@@ -575,6 +614,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 380,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Carrots (gajar), cauliflower (gobhi), turnip (shalgam), green chilli, mustard oil, mustard seeds (rai), red chilli powder, turmeric, fenugreek seeds (methi dana), salt, vinegar',
   },
   {
     name: 'Gongura Pickle',
@@ -588,6 +628,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 420,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Gongura (sorrel leaves), sesame oil (nuvvula nune), red chilli powder, garlic (optional), mustard seeds, fenugreek seeds (methi dana), turmeric, salt',
   },
   {
     name: 'Turmeric Pickle',
@@ -601,6 +642,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 420,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Fresh raw turmeric root (kachi haldi), mustard oil, lemon juice, red chilli powder, fenugreek seeds (methi dana), mustard seeds (rai), salt, green chilli',
   },
   {
     name: 'Karela Pickle',
@@ -614,6 +656,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 350,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free', 'Diabetic Friendly'],
+    ingredients: 'Bitter gourd (karela), mustard oil, onion, red chilli powder, turmeric, fenugreek seeds (methi dana), mustard seeds (rai), fennel seeds (saunf), salt, amchur (dry mango powder)',
   },
   {
     name: 'Tomato Pickle',
@@ -627,6 +670,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 160,
     priceMax: 320,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Sun-dried tomatoes, sesame oil (til ka tel), tamarind (imli), red chilli powder, mustard seeds (rai), fenugreek seeds (methi dana), curry leaves, turmeric, asafoetida (hing), salt, jaggery',
   },
   {
     name: 'Onion Pickle',
@@ -640,6 +684,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 140,
     priceMax: 280,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Pearl onions (chhote pyaz), vinegar, mustard oil, red chilli powder, mustard seeds (rai), turmeric, fenugreek seeds (methi dana), sugar (sweet variant), salt, curry leaves',
   },
   {
     name: 'Jackfruit Pickle',
@@ -653,6 +698,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 400,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Raw jackfruit (kathal), mustard oil, red chilli powder, turmeric, fenugreek seeds (methi dana), mustard seeds (rai), fennel seeds (saunf), salt, asafoetida (hing)',
   },
 
   // ── Healthy Snacks (10 products) ──
@@ -668,6 +714,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 350,
     dietary: ['Vegetarian', 'Gluten-Free', 'Vegan'],
+    ingredients: 'Makhana (fox nuts), ghee/coconut oil, rock salt (sendha namak), black pepper, chaat masala, pudina (mint) powder, nutritional yeast (cheese variant)',
   },
   {
     name: 'Oats Energy Bars',
@@ -681,6 +728,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 600,
     dietary: ['Healthy', 'Vegetarian'],
+    ingredients: 'Rolled oats, honey/dates syrup, peanut butter, mixed nuts (almonds, cashews), dark chocolate chips, flaxseeds, pumpkin seeds, coconut oil, dried cranberries, cinnamon',
   },
   {
     name: 'Protein Laddoos',
@@ -694,6 +742,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 350,
     priceMax: 700,
     dietary: ['Healthy', 'Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Dates (khajoor), almonds (badam), cashews (kaju), walnuts (akhrot), pumpkin seeds, sunflower seeds, flaxseeds, desiccated coconut, cocoa powder (chocolate variant), whey protein (high protein variant)',
   },
   {
     name: 'Ragi Millet Chips',
@@ -707,6 +756,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 350,
     dietary: ['Vegetarian', 'Vegan', 'Gluten-Free'],
+    ingredients: 'Ragi (finger millet) flour, jowar (sorghum) flour, rock salt, cumin, chaat masala, groundnut oil, flaxseeds, sesame seeds',
   },
   {
     name: 'Millet Laddoo',
@@ -720,6 +770,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 550,
     dietary: ['Healthy', 'Vegetarian', 'Gluten-Free'],
+    ingredients: 'Ragi (finger millet) flour, jaggery (gur), ghee, cardamom, desiccated coconut, jowar flour (multigrain variant), bajra flour (multigrain variant), sesame seeds',
   },
   {
     name: 'Trail Mix',
@@ -733,6 +784,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 200,
     priceMax: 600,
     dietary: ['Vegan', 'Gluten-Free', 'Diabetic Friendly'],
+    ingredients: 'Almonds (badam), cashews (kaju), walnuts (akhrot), pumpkin seeds, sunflower seeds, flaxseeds, dried cranberries, raisins, black currants, dried apricots',
   },
   {
     name: 'Roasted Chana',
@@ -746,6 +798,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 250,
     dietary: ['Vegan', 'Gluten-Free', 'High Protein'],
+    ingredients: 'Roasted chickpeas (bhuna chana), chaat masala, lemon juice, black salt, red chilli powder, amchur (dry mango powder), pudina (mint) powder, rock salt',
   },
   {
     name: 'Multigrain Khakhra',
@@ -759,6 +812,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 300,
     dietary: ['Vegetarian', 'Vegan'],
+    ingredients: 'Whole wheat atta, bajra flour, jowar flour, sesame seeds (til), groundnut oil, methi (fenugreek) leaves, garlic, cumin, ajwain, salt, turmeric',
   },
   {
     name: 'Chia Pudding Kit',
@@ -772,6 +826,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 600,
     dietary: ['Vegan', 'Gluten-Free', 'Sugar-Free option'],
+    ingredients: 'Chia seeds, coconut milk powder/almond milk powder, honey/maple syrup, vanilla extract, cocoa powder (chocolate variant), dried berries, granola, pumpkin seeds',
   },
   {
     name: 'Jaggery Chikki',
@@ -785,6 +840,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 400,
     dietary: ['Vegetarian', 'Gluten-Free'],
+    ingredients: 'Jaggery (gur), peanuts (moongphali), almonds (badam), sesame seeds (til), ghee, cardamom, mixed dry fruits (mixed nut variant)',
   },
 
   // ── Masala & Spice Mixes (6 products) ──
@@ -800,6 +856,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 350,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Cinnamon (dalchini), cloves (laung), black cardamom (badi elaichi), green cardamom (choti elaichi), black pepper, bay leaf (tej patta), mace (javitri), nutmeg (jaiphal), cumin seeds, coriander seeds',
   },
   {
     name: 'Biryani Masala',
@@ -813,6 +870,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 180,
     priceMax: 380,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Shah jeera (caraway seeds), black cardamom (badi elaichi), green cardamom (choti elaichi), cinnamon (dalchini), cloves (laung), mace (javitri), nutmeg (jaiphal), bay leaf (tej patta), star anise, saffron (kesar), black pepper',
   },
   {
     name: 'Chana Masala',
@@ -826,6 +884,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 130,
     priceMax: 280,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Coriander seeds (dhania), dried pomegranate seeds (anardana), amchur (dry mango powder), cumin seeds, black cardamom (badi elaichi), cinnamon (dalchini), cloves (laung), black pepper, red chilli, bay leaf (tej patta), dried ginger (sonth)',
   },
   {
     name: 'Kitchen King Masala',
@@ -839,6 +898,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 150,
     priceMax: 400,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Coriander seeds (dhania), cumin seeds, turmeric, red chilli, black pepper, cinnamon (dalchini), cloves (laung), cardamom, fenugreek seeds (methi), bay leaf (tej patta), dried ginger (sonth), amchur, nutmeg (jaiphal), mace (javitri)',
   },
   {
     name: 'Sambhar Masala',
@@ -852,6 +912,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 130,
     priceMax: 280,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Coriander seeds (dhania), chana dal (roasted), toor dal (roasted), urad dal (roasted), red chilli, fenugreek seeds (methi), curry leaves, mustard seeds, turmeric, asafoetida (hing), cumin seeds, black pepper, coconut (dry)',
   },
   {
     name: 'Pav Bhaji Masala',
@@ -865,6 +926,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 120,
     priceMax: 250,
     dietary: ['Vegan', 'Gluten-Free'],
+    ingredients: 'Coriander seeds (dhania), cumin seeds, Kashmiri red chilli, black cardamom (badi elaichi), cinnamon (dalchini), cloves (laung), black pepper, fennel seeds (saunf), amchur (dry mango powder), dried ginger (sonth), star anise, stone flower (dagad phool)',
   },
 
   // ── Handmade Jewelry (6 products) ──
@@ -1027,6 +1089,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 250,
     priceMax: 500,
     dietary: ['Vegetarian'],
+    ingredients: 'Dark couverture chocolate (70% cocoa), cocoa butter, roasted almonds (badam), sugar, milk solids, vanilla extract, soy lecithin',
   },
   {
     name: 'Chocolate Truffles',
@@ -1040,6 +1103,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 350,
     priceMax: 900,
     dietary: ['Vegetarian'],
+    ingredients: 'Dark couverture chocolate, fresh cream, cocoa butter, hazelnuts (hazelnut variant), sea salt (salted caramel variant), orange zest, cocoa powder, vanilla extract',
   },
   {
     name: 'Chocolate Bark',
@@ -1053,6 +1117,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 700,
     dietary: ['Vegetarian'],
+    ingredients: 'Dark/white/milk couverture chocolate, cocoa butter, roasted almonds, pistachios, dried cranberries, rose petals, sprinkles, sea salt, freeze-dried berries',
   },
   {
     name: 'Chocolate Modak',
@@ -1066,6 +1131,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 700,
     dietary: ['Vegetarian'],
+    ingredients: 'Milk/white/dark couverture chocolate, cocoa butter, coconut cream, khoya (mawa) filling, cardamom, sugar, saffron, pistachios, edible gold dust',
   },
   {
     name: 'Sugar Free Chocolates',
@@ -1079,6 +1145,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     priceMin: 300,
     priceMax: 600,
     dietary: ['Diabetic Friendly', 'Vegetarian', 'Gluten-Free'],
+    ingredients: 'Dark couverture chocolate (85% cocoa), cocoa butter, stevia extract, roasted almonds (badam), peppermint oil (mint variant), vanilla extract, soy lecithin',
   },
 
   // ── Healing & Spiritual (5 products) ──
