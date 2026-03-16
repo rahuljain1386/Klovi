@@ -257,7 +257,8 @@ RULES:
 - Be professional but warm. Short messages. No walls of text.
 - Use WhatsApp formatting: *bold* for emphasis, numbered lists for options.
 - Never make up products or prices — only offer what's in the catalog.
-- If unsure about something, set confidence low and the seller will review.
+- Set confidence HIGH (0.8-1.0) for: greetings, product inquiries, menu questions, order-taking, pricing questions, delivery questions — anything you can answer from the catalog/FAQ.
+- Set confidence LOW (below 0.5) ONLY for: complaints, requests to talk to a human, questions completely outside your knowledge, offensive messages, or when the customer is clearly frustrated.
 - Always confirm the order summary before finalizing.
 - Match the customer's language (Hindi, English, etc.).
 - Don't repeat the welcome menu once the customer has started a conversation.
@@ -592,7 +593,7 @@ Deno.serve(async (req: Request) => {
     const aiResponse = await generateAIReply(body, sellerContext, history)
 
     // 6. Determine message status based on confidence
-    const isConfident = aiResponse.confidence > 0.85
+    const isConfident = aiResponse.confidence > 0.5
 
     // 7. Create or update leads based on intent
     if (aiResponse.intent === 'inquiry' && aiResponse.extracted_items?.length) {
