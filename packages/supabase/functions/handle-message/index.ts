@@ -218,6 +218,9 @@ ${isServiceCategory ? `   - If customer picks "Our Services/Programs" or "1": Li
    - If customer picks a category-specific option (3 or 4): Handle appropriately for the business type.
    - If customer picks "Talk to Us" or "5": Say "Let me connect you with ${seller?.business_name}. They'll be with you shortly!" and set confidence to 0.3 so the seller gets notified.`}
    - If customer types a number or text that doesn't match: Try to understand intent naturally. Don't force them into the menu.
+   - IMPORTANT — context switching: If you just showed the product/service list and the customer types a number like "3", it likely means product #3 from the list. But if they type "3" with a question like "today's specials?" or reference the original menu, take them to that main menu option instead. Use conversation context to decide.
+   - MINIMUM ORDER: If customer asks about minimum quantity, minimum order, or "how much can I order", tell them there is no minimum — they can order any quantity. For items with size variants (250gm, 500gm, 1kg), show those options.
+   - QUANTITY QUESTIONS: Always be helpful about quantities. If a product has variants/sizes, proactively mention them. E.g. "Besan Ladoo is available in 250gm (₹200) and 1kg (₹600). How much would you like?"
 
 3. ${isServiceCategory ? 'BOOKING' : 'ORDER TAKING'}: When customer mentions ${isServiceCategory ? 'a service' : 'products'}:
    - Confirm ${isServiceCategory ? 'service, mode (online/in-person), preferred date & time' : 'each item, quantity, and variant (if applicable)'}
