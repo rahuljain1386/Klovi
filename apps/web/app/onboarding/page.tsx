@@ -136,6 +136,12 @@ export default function OnboardingPage() {
   const [currency, setCurrency] = useState('INR');
   const [countryCode, setCountryCode] = useState('IN');
 
+  // Knowledge base (editable FAQ generated during onboarding)
+  interface KBEntry { id?: string; question: string; answer: string }
+  const [knowledgeEntries, setKnowledgeEntries] = useState<KBEntry[]>([]);
+  const [kbLoading, setKbLoading] = useState(false);
+  const [kbExpanded, setKbExpanded] = useState(false);
+
   // AI-generated profile (runs in background)
   const [aiProfile, setAiProfile] = useState<any>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -430,12 +436,21 @@ export default function OnboardingPage() {
 
     // Start AI profile + knowledge base generation in background
     generateAiProfile();
-    // Generate FAQ/knowledge base for WhatsApp bot (fire and forget)
+    // Generate FAQ/knowledge base for WhatsApp bot
+    setKbLoading(true);
     fetch('/api/onboarding/generate-knowledge', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sellerId: effectiveSellerId }),
-    }).catch(() => {});
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.entries && Array.isArray(data.entries)) {
+          setKnowledgeEntries(data.entries);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setKbLoading(false));
   };
 
   // ─── Screen 3: Save business details & go live (via server API) ─────────
@@ -443,6 +458,18 @@ export default function OnboardingPage() {
     if (!whatsapp.trim()) return;
     setError('');
     setSaving(true);
+
+    // Save edited knowledge base entries (if any)
+    const effectiveId = sellerId || sellerIdRef.current;
+    if (knowledgeEntries.length > 0 && effectiveId) {
+      try {
+        await fetch('/api/onboarding/save-knowledge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sellerId: effectiveId, entries: knowledgeEntries }),
+        });
+      } catch {} // non-blocking — don't fail go-live for this
+    }
 
     try {
       const cleanedPhone = whatsapp.trim().replace(/[\s()-]/g, '');
@@ -1039,6 +1066,80 @@ export default function OnboardingPage() {
                 )}
               </div>
             )}
+
+            {/* ── Editable Knowledge Base / FAQ ── */}
+            <div className="bg-white rounded-xl border border-border overflow-hidden">
+              <button
+                onClick={() => setKbExpanded(!kbExpanded)}
+                className="w-full flex items-center justify-between p-4"
+              >
+                <div>
+                  <p className="text-xs text-amber font-bold tracking-wider">AI KNOWLEDGE BASE</p>
+                  <p className="text-warm-gray text-[11px] mt-0.5">
+                    {kbLoading ? 'Generating FAQs for your WhatsApp bot...' :
+                     knowledgeEntries.length > 0 ? `${knowledgeEntries.length} Q&A pairs — tap to review & edit` :
+                     'Will be generated from your products'}
+                  </p>
+                </div>
+                <span className="text-warm-gray text-sm">{kbExpanded ? '▲' : '▼'}</span>
+              </button>
+
+              {kbLoading && (
+                <div className="px-4 pb-4 flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-amber border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-warm-gray">AI is writing FAQs your bot will use to answer customers...</span>
+                </div>
+              )}
+
+              {kbExpanded && !kbLoading && knowledgeEntries.length > 0 && (
+                <div className="px-4 pb-4 space-y-3">
+                  <p className="text-[11px] text-warm-gray">
+                    Edit answers so your WhatsApp bot gives accurate replies. Delete any you don't want.
+                  </p>
+                  {knowledgeEntries.map((entry, idx) => (
+                    <div key={entry.id || idx} className="border border-border rounded-lg p-2.5 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <span className="text-amber text-xs font-bold mt-0.5">Q</span>
+                        <input
+                          type="text"
+                          value={entry.question}
+                          onChange={e => {
+                            setKnowledgeEntries(prev => prev.map((ent, i) =>
+                              i === idx ? { ...ent, question: e.target.value } : ent
+                            ));
+                          }}
+                          className="flex-1 text-xs font-medium text-ink border-none focus:outline-none bg-transparent"
+                        />
+                        <button
+                          onClick={() => setKnowledgeEntries(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-warm-gray hover:text-rose text-sm flex-shrink-0 leading-none"
+                        >✕</button>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="text-green text-xs font-bold mt-0.5">A</span>
+                        <textarea
+                          value={entry.answer}
+                          rows={2}
+                          onChange={e => {
+                            setKnowledgeEntries(prev => prev.map((ent, i) =>
+                              i === idx ? { ...ent, answer: e.target.value } : ent
+                            ));
+                          }}
+                          className="flex-1 text-xs text-warm-gray border-none focus:outline-none bg-transparent resize-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {/* Add custom FAQ */}
+                  <button
+                    onClick={() => setKnowledgeEntries(prev => [...prev, { question: '', answer: '' }])}
+                    className="w-full py-2 rounded-lg border border-dashed border-amber/40 text-amber text-xs font-medium hover:border-amber hover:bg-amber/5 transition-colors"
+                  >
+                    + Add Your Own Q&A
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Go Live button */}
             <button

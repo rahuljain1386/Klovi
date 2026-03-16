@@ -48,25 +48,390 @@ export async function POST(request: NextRequest) {
   const currency = seller.country === 'india' ? 'INR' : 'USD';
   const sym = currency === 'INR' ? '₹' : '$';
 
-  // Category-specific FAQ prompts
+  // Deep category-specific FAQ prompts — cover EVERY real customer question A-to-Z
   const categoryContext: Record<string, string> = {
-    food: `This is a HOME FOOD business. Customers ask about: ingredients, oil type (mustard/refined/groundnut), spice level, sugar content, preservatives (homemade = no preservatives), shelf life, storage instructions, minimum order, bulk/party orders (50-100+ pieces), advance booking time, delivery area, packaging, if they can customize spice/salt/sugar levels, allergens (nuts/gluten/dairy), veg/non-veg, Jain-friendly options, festive special items, gift packing, taste samples.`,
-    snacks: `This is a HOMEMADE SNACKS business. Customers ask about: ingredients, which oil (groundnut/mustard/refined), preservatives (homemade = none), shelf life (usually 15-30 days), storage (airtight container), minimum order qty, bulk orders for events/gifting, advance notice needed, packaging options, gift boxes, spice level, sugar-free options, diet-friendly, gluten-free, allergens, delivery area, shipping availability, freshness guarantee.`,
-    bakery: `This is a HOME BAKERY. Customers ask about: egg/eggless options, fondant vs cream, custom designs, flavors available, minimum cake size, advance booking (usually 2-3 days), delivery/pickup, allergens (nuts/gluten/dairy), sugar-free options, cupcake minimum order, bulk orders for parties, photo cakes, theme cakes, tier cakes, packaging, shelf life, storage, cancellation/refund.`,
-    pickle: `This is a HOMEMADE PICKLE/PRESERVES business. Customers ask about: which oil (mustard/sesame/groundnut), preservatives (none - homemade), shelf life (6-12 months), storage instructions, spice level (mild/medium/hot), sugar content, salt content, organic ingredients, minimum order, bulk orders, gift packing, shipping (does pickle ship well?), glass vs plastic jar, allergens, vegan options.`,
-    coaching: `This is a COACHING/TUTORING business. Customers ask about: batch timings, online vs offline, fees structure, demo class, syllabus covered, teacher qualifications, batch size, individual attention, study material provided, exam preparation, progress tracking, parent updates, makeup classes if missed, refund policy, payment installments.`,
-    spiritual_healing: `This is a SPIRITUAL HEALING/WELLNESS business. Customers ask about: types of sessions (reiki/crystal/tarot/numerology), online vs in-person, session duration, what to expect, first-time guidance, free consultation, package discounts, privacy/confidentiality, qualifications/certifications, follow-up sessions, group sessions, corporate wellness programs.`,
-    healing: `This is a SPIRITUAL HEALING/WELLNESS business. Customers ask about: types of sessions, online vs in-person, session duration, free consultation, package deals, what to expect in first session, privacy, qualifications, follow-up sessions.`,
-    beauty: `This is a HOME BEAUTY/SALON business. Customers ask about: services list, prices, appointment booking, home service available?, products used (brands), bridal packages, party makeup, skin type consultation, patch test, group bookings, cancellation policy.`,
-    jewelry: `This is a HANDMADE JEWELRY business. Customers ask about: materials (gold/silver/artificial), customization, engraving, size adjustment, return/exchange, gift wrapping, bulk orders for wedding, delivery, care instructions, warranty, hallmark certification.`,
-    stitching: `This is a STITCHING/TAILORING business. Customers ask about: measurement process, fabric provided or bring own, delivery time, alteration charges, fitting sessions, rush orders, bulk orders (wedding), design consultation, price range by garment type, cancellation policy.`,
-    crafts: `This is a HANDMADE CRAFTS business. Customers ask about: materials used, customization, lead time, bulk orders, gift wrapping, shipping, fragile item packaging, return policy, care instructions, personalization options.`,
-    fitness: `This is a FITNESS business. Customers ask about: batch timings, online vs offline, trial class, fees, equipment needed, group vs personal training, diet plan included, progress tracking, makeup classes, instructor qualifications.`,
+    food: `This is a HOME FOOD business. You MUST cover ALL of these customer concerns:
+
+INGREDIENTS & DIETARY:
+- What ingredients/oil do you use? (mustard oil, refined, groundnut, ghee, coconut oil — be specific per product type)
+- Do you use preservatives? (homemade = NO preservatives, freshly made)
+- Veg or non-veg? Any non-veg items?
+- Do you have Jain-friendly options? (no onion, no garlic)
+- Gluten-free options available?
+- Sugar-free / jaggery-based alternatives?
+- Nut-free options for allergies?
+- What's the spice level — can I customize (mild/medium/hot)?
+- Can you adjust salt/sugar/spice as per my preference?
+- Do you use MSG or artificial flavors?
+- Is it suitable for kids / elderly?
+
+ORDERING & QUANTITY:
+- Is there a minimum order? (answer: no minimum, order even 1 piece)
+- How do I place an order? (just message here on WhatsApp)
+- How much advance notice do you need?
+- Available sizes/pack sizes for each item
+- Can I order a mix of different items?
+- Do you take bulk orders for parties/events (50-100+ pieces)?
+- Advance booking for festivals (Diwali, Holi, Rakhi, weddings)?
+- Can I get a sample/trial order first?
+
+DELIVERY & FULFILLMENT:
+- What is your delivery area?
+- Do you deliver to my area?
+- Delivery charges?
+- Can I pick up from your location?
+- Do you ship outside the city / PAN India?
+- What time do you deliver?
+- Packaging — is it leak-proof / secure?
+
+QUALITY & FRESHNESS:
+- Shelf life of each product?
+- How should I store it?
+- Is it freshly made or pre-made?
+- When was this batch made?
+- Do you have a freshness guarantee?
+
+CUSTOMIZATION & SPECIAL:
+- Can you make custom items not on the menu?
+- Gift packing available?
+- Corporate / bulk gifting for festivals?
+- Combo offers or discounts for large orders?
+- Do you cater for parties/events?
+- Festive special items (seasonal menus)?`,
+
+    snacks: `This is a HOMEMADE SNACKS business. You MUST cover ALL of these customer concerns:
+
+INGREDIENTS & DIETARY:
+- Which oil do you use — groundnut / mustard / refined / ghee?
+- Any preservatives? (homemade = zero preservatives)
+- Are all items vegetarian? Jain-friendly?
+- Gluten-free snacks available?
+- Sugar-free / diet-friendly options?
+- What's the spice level? Can I get less spicy?
+- Nut-free options (for allergies)?
+- Do you use palm oil or vanaspati?
+- Are ingredients sourced locally/organic?
+
+SHELF LIFE & STORAGE:
+- How long do snacks last? (typically 15-30 days for dry snacks, less for moist)
+- How should I store them? (airtight container, room temperature)
+- Do they come in sealed packaging?
+- Will taste change after 2 weeks?
+- Best consumed within how many days?
+
+ORDERING & QUANTITY:
+- Minimum order quantity?
+- Available sizes — 250gm, 500gm, 1kg?
+- Can I mix different snacks in one order?
+- Bulk orders for events, gifting, weddings?
+- How much advance notice for large orders (50+ packets)?
+- Can I get a small trial pack first?
+- Weekly/monthly subscription available?
+
+DELIVERY & SHIPPING:
+- Delivery area and charges?
+- Do you ship PAN India / outside city?
+- Will snacks survive shipping without breaking?
+- Packaging for shipping — is it crush-proof?
+- Cash on delivery available?
+
+GIFTING & SPECIAL:
+- Gift boxes / hamper packaging?
+- Corporate gifting options?
+- Festival special items (Diwali namkeen, etc.)?
+- Custom assortment boxes?
+- Can you add a personalized note?`,
+
+    bakery: `This is a HOME BAKERY. You MUST cover ALL of these customer concerns:
+
+BASICS:
+- Do you make eggless cakes? (MOST home bakers in India do both)
+- Egg vs eggless — is there a taste difference?
+- What flavors are available?
+- Fondant or cream finish?
+- Buttercream or whipped cream?
+
+CAKES & CUSTOM:
+- Can you make a custom design / photo cake / theme cake?
+- Minimum cake size? (usually 0.5kg or 1kg)
+- Tiered cakes for weddings — do you make them?
+- How many people does a 1kg cake serve? (8-10 usually)
+- Can you write a message on the cake?
+- Can I send a reference photo for the design?
+- Sugar-free / diabetic-friendly cake?
+
+ORDERING:
+- How much advance notice? (usually 2-3 days, 1 week for elaborate designs)
+- Minimum order for cupcakes? (usually 6-12)
+- Can I order just 1-2 cupcakes?
+- Midnight delivery available?
+- Same-day order possible?
+- How do I place an order?
+
+PRICING & QUANTITY:
+- Starting price for a 1kg cake?
+- Extra charge for fondant / photo cake / tiers?
+- Cupcake price per piece vs box?
+- Bulk discount for 50+ pieces?
+
+DELIVERY:
+- Do you deliver? What areas?
+- How is the cake packaged for delivery?
+- Will the cake survive in hot weather?
+- Can I pick up instead?
+
+OTHER:
+- Do you make brownies, cookies, pastries too?
+- Gift wrapping / cake boxes included?
+- Can I do a tasting before ordering?
+- Allergens — nut-free options?
+- Return/refund if cake is damaged?`,
+
+    pickle: `This is a HOMEMADE PICKLE/PRESERVES business. You MUST cover ALL of these:
+
+INGREDIENTS & QUALITY:
+- Which oil — mustard oil, sesame oil, groundnut oil?
+- Any preservatives? (homemade = NO preservatives, just traditional methods)
+- Is it organic?
+- How is it different from store-bought?
+- Rock salt or regular salt?
+- Spice level — mild, medium, or hot?
+- Can you make it less spicy?
+- Do you use vinegar or only traditional preservation?
+- Is it sun-dried traditionally?
+
+SHELF LIFE & STORAGE:
+- How long does it last? (6-12 months for oil-based, less for curd-based)
+- Storage — fridge or room temperature?
+- Glass jar or plastic container?
+- Will it get spoiled in summer heat?
+- Can I keep it after opening for how long?
+
+ORDERING & SIZES:
+- Available sizes — 250gm, 500gm, 1kg, 5kg?
+- Minimum order?
+- Can I order a sampler pack with different varieties?
+- Combo offers?
+- Bulk order for weddings / functions?
+
+SHIPPING:
+- Do pickles ship well?
+- Leak-proof packaging?
+- PAN India shipping?
+- Will oil leak during transit?
+- Shipping charges?
+
+VARIETIES & CUSTOM:
+- What varieties do you have? (mango, lemon, mixed, chili, garlic, etc.)
+- Seasonal items? (raw mango season, green chili season)
+- Can you make sugar-free / low-salt version?
+- Gift hampers for festivals?
+- Corporate gifting?`,
+
+    coaching: `This is a COACHING/TUTORING/TRAINING business. You MUST cover ALL of these:
+
+CLASSES & SCHEDULE:
+- What are the batch timings? Morning / evening / weekend?
+- Online or offline classes?
+- How long is each session?
+- How many classes per week?
+- Batch size — how many students?
+- One-on-one or group?
+
+TEACHER & QUALITY:
+- What are the teacher's qualifications?
+- Years of experience?
+- Success rate / results of previous students?
+- Do you guarantee results?
+- Any trial / demo class available?
+
+CURRICULUM:
+- What syllabus do you cover?
+- Which boards — CBSE / ICSE / State?
+- Which exams do you prepare for?
+- Study material provided?
+- Practice tests included?
+- Doubt-clearing sessions?
+
+FEES & PAYMENT:
+- Monthly fees / per-class charges?
+- Any registration fee?
+- Installment payment option?
+- Sibling discount / group discount?
+- Refund policy if I want to stop?
+
+AGE GROUPS & LEVELS:
+- What age groups do you teach?
+- Beginner to advanced — all levels?
+- Separate batches for different age groups?
+- Is it suitable for adults / working professionals?
+- Gender-specific batches?
+
+PROGRESS & SUPPORT:
+- How do you track student progress?
+- Regular parent updates?
+- Can I attend a class with my child?
+- Makeup classes if a student is absent?
+- Extra help for weak students?
+- Homework / assignments given?
+
+FOR FITNESS/YOGA COACHING specifically:
+- Do you include a diet plan?
+- Weight loss guarantee / timeline?
+- What equipment is needed?
+- Safe for people with injuries / medical conditions?
+- Can pregnant women join?
+- Do you do body assessment first?
+- Home visits available?
+- Corporate wellness programs?`,
+
+    spiritual_healing: `This is a SPIRITUAL HEALING/WELLNESS business. You MUST cover ALL of these:
+
+SESSIONS & TYPES:
+- What types of sessions do you offer? (Reiki, crystal healing, tarot, numerology, past life regression, chakra balancing, pranic healing, etc.)
+- Online sessions or in-person only?
+- Session duration?
+- How often should I come?
+- Can I combine multiple healing modalities?
+
+FIRST TIME:
+- What should I expect in my first session?
+- Do I need to prepare anything?
+- What should I wear?
+- Is there a free consultation?
+- How do I know which type of healing is right for me?
+- Will I feel something during the session?
+
+QUALIFICATIONS & TRUST:
+- What are your certifications / training?
+- How many years of experience?
+- Is this scientifically proven?
+- Can this replace medical treatment? (always answer: complementary, not replacement)
+- How is this different from therapy?
+- Is everything confidential?
+
+PRICING:
+- Cost per session?
+- Package deals for multiple sessions?
+- Group session rates?
+- Corporate wellness packages?
+- Do you offer sliding scale / student discounts?
+
+RESULTS & FOLLOW-UP:
+- How many sessions will I need?
+- When will I see results?
+- What if I don't feel anything?
+- Can it help with anxiety / depression / stress?
+- Can it help with physical pain?
+- Follow-up support between sessions?
+- Emergency sessions available?
+
+PRACTICAL:
+- Do you do distance / remote healing?
+- Timings and availability?
+- Can I gift a session to someone?
+- Group / couple sessions?
+- Workshops / courses to learn healing?`,
+
+    healing: `This is a SPIRITUAL HEALING/WELLNESS business. Cover: types of sessions (reiki/crystal/tarot/numerology/chakra/pranic healing), online vs in-person, session duration, first-time expectations, free consultation, what to wear/prepare, package deals, how many sessions needed, when to expect results, qualifications/certifications, confidentiality, can it help with anxiety/depression/physical pain, complementary to medical treatment (not replacement), distance healing available, group sessions, corporate wellness, workshops, pricing, gift sessions, follow-up support.`,
+
+    beauty: `This is a HOME BEAUTY/SALON business. You MUST cover ALL of these:
+
+SERVICES:
+- Full services list?
+- Do you offer home visits / doorstep service?
+- What brands/products do you use?
+- Do you use organic / herbal products?
+- Bridal packages available?
+- Party / group makeup?
+- Pre-bridal packages (how many sessions)?
+
+SKIN & SAFETY:
+- Do you do a patch test first?
+- Products for sensitive skin?
+- Any chemical-free options?
+- Clean / sanitized tools guaranteed?
+
+BOOKING:
+- How to book an appointment?
+- Advance booking needed?
+- Cancellation / reschedule policy?
+- Timings — early morning / late evening available?
+- Home visit charges?
+
+PRICING:
+- Price list for common services?
+- Package deals?
+- Group booking discount?
+- Bridal package cost?
+- Men's services available?
+
+OTHER:
+- Do you serve at the client's home?
+- Separate room / privacy?
+- Can I see before/after photos?
+- Makeup trial before wedding?`,
+
+    jewelry: `This is a HANDMADE JEWELRY business. Cover: materials (gold/silver/artificial/semi-precious), customization options, engraving, size guide / adjustment, return/exchange policy, gift wrapping, bulk orders for weddings/events, delivery and shipping (fragile packaging), care instructions, warranty/guarantee, hallmark certification, allergic-safe metals (nickel-free), repair services, matching sets, bridal jewelry packages, corporate gifting, personalization (name/initials), gold/silver purity details, stone authenticity, cleaning tips, insurance for expensive pieces.`,
+
+    stitching: `This is a STITCHING/TAILORING business. Cover: measurement process (home visit or come to shop), can I bring my own fabric, delivery time (standard vs rush), alteration charges, fitting sessions included, rush/urgent orders surcharge, bulk orders for weddings/uniforms, design consultation, price range by garment type, latest design catalog/reference photos, cancellation policy, embroidery/hand-work charges, blouse stitching included with saree, kids clothing, men's clothing, western wear alterations, lining charges, button/zip replacement.`,
+
+    crafts: `This is a HANDMADE CRAFTS business. Cover: materials used (eco-friendly/sustainable), customization and personalization, lead time per item, bulk orders for events/corporate, gift wrapping, shipping (fragile packaging, bubble wrap), return/exchange policy, care instructions, personalization options (names/dates/messages), wedding favors, corporate gifts, workshop/class availability, made-to-order vs ready stock, color/size variations, international shipping, wholesale pricing, raw materials sourced from where.`,
+
+    fitness: `This is a FITNESS business. You MUST cover ALL of these:
+
+CLASSES:
+- Batch timings? Morning / evening / weekend?
+- Online or offline?
+- Trial / demo class available?
+- Group or personal training?
+- Session duration?
+- Equipment needed?
+
+PROGRAMS:
+- Weight loss program?
+- Muscle building?
+- Yoga / meditation?
+- Zumba / dance fitness?
+- Post-pregnancy fitness?
+- Senior citizen programs?
+- Kids fitness?
+
+HEALTH & SAFETY:
+- Safe for people with injuries / back pain / knee issues?
+- Medical conditions — diabetes, BP, thyroid?
+- Do you assess fitness level first?
+- Diet plan included?
+- Nutrition guidance?
+- Body composition analysis?
+
+FEES & COMMITMENT:
+- Monthly / quarterly / yearly plans?
+- Personal training rates?
+- Group discount?
+- Family package?
+- Refund if I quit?
+- Freeze membership option?
+
+RESULTS:
+- Weight loss guarantee / realistic timeline?
+- Before/after results of clients?
+- How often should I train?
+- How soon will I see results?
+- Do you track progress?
+
+PRACTICAL:
+- Home training available?
+- What to wear / bring?
+- Parking available?
+- Shower facilities?
+- Corporate wellness programs?
+- Instructor gender preference?`,
   };
 
   const industryHints = categoryContext[category] || categoryContext['food'] || '';
 
-  const prompt = `Generate 15-20 FAQ entries for "${seller.business_name}", a ${seller.category} business in ${seller.city}.
+  const prompt = `Generate 20-25 comprehensive FAQ entries for "${seller.business_name}", a ${seller.category} business in ${seller.city}.
 
 ${industryHints}
 
@@ -76,20 +441,27 @@ ${productList || 'Not specified yet'}
 Fulfillment: ${fulfillment.join(', ')}
 Currency: ${sym}
 
-Generate realistic Q&A pairs that REAL customers would ask on WhatsApp. Cover:
-1. Product/ingredient questions (4-5)
-2. Ordering process questions (3-4)
-3. Pricing/quantity/bulk questions (2-3)
-4. Delivery/pickup/shipping questions (2-3)
-5. Quality/freshness/shelf life (2-3)
-6. Customization/special requests (2-3)
+Generate realistic Q&A pairs that REAL customers would ask on WhatsApp. These should cover the FULL RANGE of customer concerns — not just basics.
+
+MANDATORY COVERAGE (generate at least 2-3 for each):
+1. Ingredients / materials / what goes into each product (5-6 questions)
+2. Dietary / health / allergy concerns (3-4)
+3. Ordering process — how to order, minimum qty, advance notice (3-4)
+4. Pricing / sizes / bulk orders / packages (3-4)
+5. Delivery / pickup / shipping / areas covered (2-3)
+6. Quality / freshness / shelf life / storage (2-3)
+7. Customization / special requests / personalization (2-3)
+8. Festival / event / gifting / corporate orders (2-3)
 
 RULES:
 - Answers should be helpful, warm, and concise (1-3 sentences max)
+- Sound like a real small business owner replying on WhatsApp, not corporate
 - Use ${sym} for prices where relevant
-- If you don't know specifics (like exact ingredients), give a generic but helpful answer like "All our items are freshly homemade with quality ingredients. For specific ingredients of any item, just ask!"
+- For specific details you don't know (exact ingredients per product), give helpful generic answers like "All our items are freshly homemade with quality ingredients. For specific ingredients of any item, just ask!"
 - Don't make up specific prices — use "Please check our menu for current prices" if needed
 - Include the business name naturally where it fits
+- Cover both the OBVIOUS questions AND the non-obvious ones real customers ask
+- Include questions in the casual way customers actually ask on WhatsApp (e.g., "do u deliver to my area?" not "What are your delivery zones?")
 
 Return JSON array: [{"question": "...", "answer": "..."}, ...]`;
 
@@ -140,13 +512,18 @@ Return JSON array: [{"question": "...", "answer": "..."}, ...]`;
     const { data: inserted, error: insertErr } = await supabase
       .from('knowledge_base')
       .insert(inserts)
-      .select('id');
+      .select('id, question, answer');
 
     if (insertErr) {
       return NextResponse.json({ error: insertErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, count: inserted?.length || 0 });
+    // Return the generated FAQs so onboarding UI can show them for editing
+    return NextResponse.json({
+      success: true,
+      count: inserted?.length || 0,
+      entries: (inserted || []).map(e => ({ id: e.id, question: e.question, answer: e.answer })),
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
