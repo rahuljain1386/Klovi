@@ -101,7 +101,9 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>('about');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [sellerId, setSellerId] = useState('');
+  const [sellerId, _setSellerId] = useState('');
+  const sellerIdRef = useRef('');
+  const setSellerId = (id: string) => { sellerIdRef.current = id; _setSellerId(id); };
   const [slug, setSlug] = useState('');
 
   // Screen 1 — About You
@@ -145,39 +147,36 @@ export default function OnboardingPage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      // Prefer a seller still in 'onboarding' (incomplete signup).
+      // If all sellers are active/live, don't reuse — let saveAbout create a fresh one.
       let seller = sellers?.[0] || null;
-      if (sellers && sellers.length > 1) {
-        for (const s of sellers) {
-          const { count } = await supabase
-            .from('products')
-            .select('id', { count: 'exact', head: true })
-            .eq('seller_id', s.id);
-          if ((count || 0) > 0) { seller = s; break; }
-        }
+      seller = null; // Reset — only use if we find one in 'onboarding'
+      if (sellers && sellers.length > 0) {
+        seller = sellers.find(s => s.status === 'onboarding') || null;
       }
 
       if (seller) {
         setSellerId(seller.id);
         setSlug(seller.slug);
 
-        // Pre-fill from DB ONLY if seller is still in onboarding (data is fresh from signup)
-        // If seller is already active, they're re-doing onboarding — start fresh
-        if (seller.status === 'onboarding') {
-          if (seller.business_name) setBusinessName(seller.business_name);
-          if (seller.owner_name) setOwnerName(seller.owner_name);
-          if (seller.gender) setGender(seller.gender);
-          if (seller.niche) setNiche(seller.niche as Niche);
-          if (seller.whatsapp_number || seller.phone) {
-            setWhatsapp(seller.whatsapp_number || seller.phone || '');
-          }
+        // Pre-fill from the incomplete onboarding seller
+        if (seller.business_name) setBusinessName(seller.business_name);
+        if (seller.owner_name) setOwnerName(seller.owner_name);
+        if (seller.gender) setGender(seller.gender);
+        if (seller.niche) setNiche(seller.niche as Niche);
+        if (seller.whatsapp_number || seller.phone) {
+          setWhatsapp(seller.whatsapp_number || seller.phone || '');
         }
+      }
 
-        // Country/currency always (non-editable context)
-        if (seller.city) setCity(seller.city);
-        if (seller.address_city) setCity(seller.address_city);
-        if (seller.address_country_code) {
-          setCountryCode(seller.address_country_code);
-          setCurrency(seller.address_country_code === 'IN' ? 'INR' : 'USD');
+      // Country/currency from any existing seller or geo-detect
+      const anySeller = seller || sellers?.[0];
+      if (anySeller) {
+        if (anySeller.city) setCity(anySeller.city);
+        if (anySeller.address_city) setCity(anySeller.address_city);
+        if (anySeller.address_country_code) {
+          setCountryCode(anySeller.address_country_code);
+          setCurrency(anySeller.address_country_code === 'IN' ? 'INR' : 'USD');
         }
       }
 
@@ -342,7 +341,8 @@ export default function OnboardingPage() {
       }
 
       // Update local state with server response
-      if (result.seller?.id && !sellerId) setSellerId(result.seller.id);
+      // Always set sellerId from response — ensures we have the correct ID
+      if (result.seller?.id) setSellerId(result.seller.id);
       if (result.seller?.slug) newSlug = result.seller.slug;
 
       setSlug(newSlug);
@@ -359,7 +359,9 @@ export default function OnboardingPage() {
     if (selectedProducts.size === 0) return;
     setError('');
 
-    if (!sellerId) {
+    // Use ref as fallback — setState may not have flushed yet after saveAbout
+    const effectiveSellerId = sellerId || sellerIdRef.current;
+    if (!effectiveSellerId) {
       setError('ERROR: sellerId is empty — go back to step 1 and try again');
       return;
     }
@@ -385,7 +387,7 @@ export default function OnboardingPage() {
       const res = await fetch('/api/onboarding/save-products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId, products }),
+        body: JSON.stringify({ sellerId: effectiveSellerId, products }),
       });
       const result = await res.json();
       if (!res.ok) {
@@ -453,10 +455,11 @@ export default function OnboardingPage() {
         if (aiProfile.launchOffer) updates.launch_offer = aiProfile.launchOffer;
       }
 
+      const effectiveId = sellerId || sellerIdRef.current;
       const res = await fetch('/api/onboarding/save-seller', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId, updates }),
+        body: JSON.stringify({ sellerId: effectiveId, updates }),
       });
       const result = await res.json();
 
