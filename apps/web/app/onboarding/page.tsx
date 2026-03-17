@@ -228,62 +228,47 @@ export default function OnboardingPage() {
     );
   }, [router]);
 
-  // ─── Load catalog from Supabase DB (has admin DALL-E images) ─────────
+  // ─── Load catalog: static data instantly, then enrich with DB images ───
   useEffect(() => {
-    // Only clear products if the niche actually changed (not just navigating back)
     const nicheChanged = niche !== prevNicheRef.current;
     prevNicheRef.current = niche;
 
     if (!nicheChanged && catalogProducts.length > 0) return;
 
-    // Clear immediately — don't wait for async
     setSelectedProducts(new Set());
     setProductEdits({});
     setCatalogFilter(null);
-    setCatalogProducts([]);
 
-    if (!niche || niche === 'other') return;
+    if (!niche || niche === 'other') {
+      setCatalogProducts([]);
+      return;
+    }
     const categories = NICHE_TO_CATEGORIES[niche] || [];
+    const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
 
+    // Show static catalog INSTANTLY (no network wait)
+    setCatalogProducts(staticProducts);
+
+    // Then enrich with DB images in background
     (async () => {
       const supabase = createClient();
-      const { data: dbProducts, error: catalogErr } = await supabase
+      const { data: dbProducts } = await supabase
         .from('catalog_products')
-        .select('*')
+        .select('name, parent_category, image_url, ingredients')
         .in('parent_category', categories)
-        .eq('enabled', true)
-        .order('sort_order');
-
-      if (catalogErr) {
-        setError(`Catalog load error: ${catalogErr.message}`);
-      }
-
-      // Static catalog has ingredients — use it to enrich DB products
-      const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
+        .eq('enabled', true);
 
       if (dbProducts && dbProducts.length > 0) {
-        setCatalogProducts(dbProducts.map((p: any) => {
-          // Try to get ingredients from static catalog (DB catalog_products may not have it)
-          const staticMatch = staticProducts.find(sp => sp.name === p.name);
+        const dbMap = new Map(dbProducts.map((p: any) => [p.name, p]));
+        setCatalogProducts(prev => prev.map(p => {
+          const db = dbMap.get(p.name);
+          if (!db) return p;
           return {
-            name: p.name,
-            category: p.category,
-            parentCategory: p.parent_category,
-            title: p.title,
-            description: p.description,
-            highlights: p.highlights,
-            variants: p.variants || [],
-            quantity: p.quantity || '1',
-            priceMin: p.price_min,
-            priceMax: p.price_max,
-            dietary: p.dietary || [],
-            ingredients: p.ingredients || staticMatch?.ingredients || undefined,
-            pexelsQuery: p.pexels_query,
-            imageUrl: p.image_url,
+            ...p,
+            imageUrl: db.image_url || p.imageUrl,
+            ingredients: db.ingredients || p.ingredients,
           };
         }));
-      } else {
-        setCatalogProducts(staticProducts);
       }
     })();
   }, [niche]);
@@ -454,33 +439,30 @@ export default function OnboardingPage() {
     // Start AI profile + knowledge base + ingredients generation in background
     generateAiProfile();
 
-    // Generate ingredients via AI (fire and update product edits when done)
-    if (isFoodNiche) {
-      fetch('/api/onboarding/generate-ingredients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId: effectiveSellerId }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.products && Array.isArray(data.products)) {
-            // Update local product edits with AI-generated ingredients
-            setProductEdits(prev => {
-              const next = { ...prev };
-              for (const item of data.products) {
-                const key = Array.from(selectedProducts).find(
-                  k => k.toLowerCase() === item.name?.toLowerCase() || (prev[k]?.name || '').toLowerCase() === item.name?.toLowerCase()
-                );
-                if (key && item.ingredients) {
-                  next[key] = { ...getEdit(key), ...next[key], ingredients: next[key]?.ingredients || item.ingredients };
-                }
+    // Generate ingredients/materials/details via AI for all niches (background)
+    fetch('/api/onboarding/generate-ingredients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sellerId: effectiveSellerId }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.products && Array.isArray(data.products)) {
+          setProductEdits(prev => {
+            const next = { ...prev };
+            for (const item of data.products) {
+              const key = Array.from(selectedProducts).find(
+                k => k.toLowerCase() === item.name?.toLowerCase() || (prev[k]?.name || '').toLowerCase() === item.name?.toLowerCase()
+              );
+              if (key && item.ingredients) {
+                next[key] = { ...getEdit(key), ...next[key], ingredients: next[key]?.ingredients || item.ingredients };
               }
-              return next;
-            });
-          }
-        })
-        .catch(() => {});
-    }
+            }
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
 
     // Generate FAQ/knowledge base for WhatsApp bot
     setKbLoading(true);
