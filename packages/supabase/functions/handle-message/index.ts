@@ -439,22 +439,26 @@ async function createOrder(
   sellerId: string,
   customerId: string,
   conversationId: string,
-  items: { product_id: string; quantity: number }[],
+  items: { product_id: string; quantity: number; product_name?: string; variant?: string; price?: number }[],
   fulfillmentType?: string,
   pickupDate?: string,
   pickupTime?: string,
   deliveryAddress?: string
 ) {
-  // Fetch product prices to calculate total
-  const productIds = items.map((i) => i.product_id)
-  const { data: products } = await supabase
+  // Fetch ALL active products for this seller so we can match by name if IDs fail
+  const { data: allProducts } = await supabase
     .from('products')
     .select('id, name, price')
-    .in('id', productIds)
+    .eq('seller_id', sellerId)
+    .eq('status', 'active')
 
-  if (!products || products.length === 0) {
-    throw new Error('No valid products found for order')
+  if (!allProducts || allProducts.length === 0) {
+    throw new Error('No active products found for this seller')
   }
+
+  // Build lookup maps: by ID and by lowercase name
+  const byId = new Map(allProducts.map((p) => [p.id, p]))
+  const byName = new Map(allProducts.map((p) => [p.name.toLowerCase(), p]))
 
   // Get seller deposit percentage
   const { data: seller } = await supabase
@@ -466,20 +470,27 @@ async function createOrder(
   const depositPct = seller?.deposit_percentage ?? 50
   const currency = seller?.country === 'india' ? 'INR' : 'USD'
 
-  const productMap = new Map(products.map((p) => [p.id, p]))
-
+  // Match each item — try ID first, then fall back to name matching
   const orderItems = items
-    .filter((i) => productMap.has(i.product_id))
     .map((i) => {
-      const product = productMap.get(i.product_id)!
+      let product = byId.get(i.product_id)
+      if (!product && i.product_name) {
+        product = byName.get(i.product_name.toLowerCase())
+      }
+      if (!product) return null
       return {
-        product_id: i.product_id,
+        product_id: product.id,
         name: product.name,
         price: product.price,
         quantity: i.quantity,
         subtotal: product.price * i.quantity,
       }
     })
+    .filter(Boolean) as { product_id: string; name: string; price: number; quantity: number; subtotal: number }[]
+
+  if (orderItems.length === 0) {
+    throw new Error('No valid products found for order')
+  }
 
   const total = orderItems.reduce((sum, i) => sum + i.subtotal, 0)
   const depositAmount = Math.ceil(total * depositPct / 100)
@@ -783,7 +794,7 @@ Deno.serve(async (req: Request) => {
         console.error('Order creation failed:', err)
         orderCreationFailed = true
         // Override the AI reply since the order didn't actually get created
-        replyText = "I've noted your order request — the seller will confirm shortly. We'll get back to you with the details!"
+        replyText = "I'm having trouble processing your order right now. Let me connect you with the team — they'll sort this out quickly! 🙏"
       }
     }
 
