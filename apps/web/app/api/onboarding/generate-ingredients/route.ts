@@ -45,20 +45,42 @@ export async function POST(request: NextRequest) {
   const category = seller.niche || seller.category || 'food';
   const productList = products.map(p => `${p.name}${p.description ? ` (${p.description})` : ''}${p.category ? ` [${p.category}]` : ''}`).join('\n');
 
-  const prompt = `For each product below, list the typical Indian homemade ingredients as a comma-separated string.
+  const foodCategories = ['snacks', 'food', 'bakery', 'tiffin', 'pickle'];
+  const isFood = foodCategories.some(c => category.toLowerCase().includes(c));
+  const isService = ['coaching', 'spiritual_healing', 'healing', 'beauty', 'fitness', 'services'].some(c => category.toLowerCase().includes(c));
+  const isPhysical = ['jewelry', 'crafts', 'stitching', 'art'].some(c => category.toLowerCase().includes(c));
+
+  let contextRules = '';
+  if (isFood) {
+    contextRules = `This is a FOOD business. List ingredients for each product.
+- Use Indian ingredient names with English in parentheses: "besan (gram flour)", "poha (flattened rice)", "hing (asafoetida)"
+- Be specific about oil type (mustard oil, groundnut oil, ghee), sugar type (powdered sugar, jaggery), flour type (maida, atta, besan)
+- Include 6-12 key ingredients per product, comma-separated`;
+  } else if (isPhysical) {
+    contextRules = `This is a ${category} business. List MATERIALS used for each product.
+- For jewelry: metal type (gold-plated, sterling silver, brass, copper), stones (kundan, pearl, semi-precious), other materials (thread, enamel, meenakari)
+- For crafts: base material (wood, clay, fabric, resin), finishing (paint, lacquer, embroidery)
+- For stitching: fabric type, thread, embellishments, lining
+- Include 3-8 materials per product, comma-separated`;
+  } else if (isService) {
+    contextRules = `This is a ${category} SERVICE business. List KEY DETAILS for each service.
+- For coaching: what's covered, mode (online/offline), duration, level, materials provided
+- For healing: modality, duration, what to expect, what to bring
+- For beauty: products/brands used, duration, what's included
+- Include 4-8 key details per service, comma-separated`;
+  } else {
+    contextRules = `List the key details, materials, or components for each product/service. 4-8 items, comma-separated.`;
+  }
+
+  const prompt = `For each product/service below, list the key details as a comma-separated string.
 
 Business type: ${category}
-Products:
+Products/Services:
 ${productList}
 
-RULES:
-- Use Indian ingredient names with English in parentheses where helpful: "besan (gram flour)", "poha (flattened rice)", "hing (asafoetida)"
-- Be specific: mention the type of oil (mustard oil, groundnut oil, ghee), type of sugar (powdered sugar, jaggery), type of flour (maida, atta, besan)
-- Include all key ingredients a customer would want to know about
-- Keep each product's ingredients to 6-12 items, comma-separated
-- For non-food items (services, coaching, etc.), return empty string
+${contextRules}
 
-Return JSON: {"products": [{"name": "product name", "ingredients": "ingredient1, ingredient2, ..."}]}`;
+Return JSON: {"products": [{"name": "product name", "ingredients": "detail1, detail2, ..."}]}`;
 
   try {
     // Try Gemini first (faster), fall back to OpenAI

@@ -585,6 +585,17 @@ export default function OnboardingPage() {
 
   // ─── Product edit helpers (used in products step) ─────────────────────
   const isFoodNiche = ['snacks', 'bakery', 'tiffin'].includes(niche as string);
+  const isServiceNiche = ['coaching', 'spiritual_healing', 'beauty'].includes(niche as string);
+  const isPhysicalNiche = ['jewelry', 'crafts'].includes(niche as string);
+
+  // Niche-aware labels and placeholders
+  const nicheLabels = {
+    quantity: isFoodNiche ? 'Qty (1kg, 6pc)' : isServiceNiche ? 'Duration (1hr, 45min)' : 'Size / Unit',
+    sizes: isFoodNiche ? 'Sizes' : isServiceNiche ? 'Packages' : 'Options',
+    materials: isPhysicalNiche ? 'Materials' : isFoodNiche ? 'Ingredients' : 'Details',
+    materialsPlaceholder: isPhysicalNiche ? 'e.g., silver, gold-plated, pearl, kundan' : isFoodNiche ? 'e.g., besan, ghee, sugar, cardamom' : 'e.g., key details about this service',
+  };
+
   const getEdit = (key: string): ProductEdit => {
     if (productEdits[key]) return productEdits[key];
     const cp = catalogProducts.find(p => p.name === key);
@@ -864,7 +875,7 @@ export default function OnboardingPage() {
                             <textarea value={edit.description} rows={2}
                               onChange={e => updateEdit(key, { description: e.target.value })}
                               className="w-full px-2 py-1 text-xs text-warm-gray border border-transparent hover:border-border focus:border-amber rounded-lg focus:outline-none resize-none"
-                              placeholder="Short description..." />
+                              placeholder={isServiceNiche ? 'What\'s included, what to expect...' : isPhysicalNiche ? 'Materials, style, care instructions...' : 'Short description...'} />
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-warm-gray">{sym}</span>
                               <input type="number" value={edit.price} min={0}
@@ -873,47 +884,45 @@ export default function OnboardingPage() {
                               <input type="text" value={edit.quantity}
                                 onChange={e => updateEdit(key, { quantity: e.target.value })}
                                 className="w-24 px-2 py-1 text-xs text-warm-gray border border-border rounded-lg focus:outline-none focus:border-amber"
-                                placeholder="Qty (1kg, 6pc)" />
+                                placeholder={nicheLabels.quantity} />
                               <input type="text" value={edit.category}
                                 onChange={e => updateEdit(key, { category: e.target.value })}
                                 className="flex-1 px-2 py-1 text-xs text-warm-gray border border-transparent hover:border-border focus:border-amber rounded-lg focus:outline-none"
                                 placeholder="Category" />
                             </div>
-                            {/* Ingredients — chip/tag UI for food niches */}
-                            {isFoodNiche && (
-                              <div>
-                                <span className="text-[10px] text-warm-gray">Ingredients:</span>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {(edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean).map((ing, ii) => (
-                                    <span key={ii} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-cream border border-border rounded-full text-[10px] text-ink">
-                                      {ing}
-                                      <button onClick={() => {
-                                        const parts = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
-                                        parts.splice(ii, 1);
-                                        updateEdit(key, { ingredients: parts.join(', ') });
-                                      }} className="text-warm-gray hover:text-rose ml-0.5 text-xs leading-none">&times;</button>
-                                    </span>
-                                  ))}
-                                  <input
-                                    type="text"
-                                    className="w-24 px-1.5 py-0.5 text-[10px] border border-dashed border-border rounded-full focus:outline-none focus:border-amber text-ink"
-                                    placeholder="+ add"
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter' || e.key === ',') {
-                                        e.preventDefault();
-                                        const val = (e.target as HTMLInputElement).value.trim().replace(/,$/,'');
-                                        if (val) {
-                                          const current = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
-                                          current.push(val);
-                                          updateEdit(key, { ingredients: current.join(', ') });
-                                          (e.target as HTMLInputElement).value = '';
-                                        }
+                            {/* Ingredients/Materials/Details — chip/tag UI */}
+                            <div>
+                              <span className="text-[10px] text-warm-gray">{nicheLabels.materials}:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {(edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean).map((ing, ii) => (
+                                  <span key={ii} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-cream border border-border rounded-full text-[10px] text-ink">
+                                    {ing}
+                                    <button onClick={() => {
+                                      const parts = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                                      parts.splice(ii, 1);
+                                      updateEdit(key, { ingredients: parts.join(', ') });
+                                    }} className="text-warm-gray hover:text-rose ml-0.5 text-xs leading-none">&times;</button>
+                                  </span>
+                                ))}
+                                <input
+                                  type="text"
+                                  className="w-24 px-1.5 py-0.5 text-[10px] border border-dashed border-border rounded-full focus:outline-none focus:border-amber text-ink"
+                                  placeholder="+ add"
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter' || e.key === ',') {
+                                      e.preventDefault();
+                                      const val = (e.target as HTMLInputElement).value.trim().replace(/,$/,'');
+                                      if (val) {
+                                        const current = (edit.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                                        current.push(val);
+                                        updateEdit(key, { ingredients: current.join(', ') });
+                                        (e.target as HTMLInputElement).value = '';
                                       }
-                                    }}
-                                  />
-                                </div>
+                                    }
+                                  }}
+                                />
                               </div>
-                            )}
+                            </div>
                           </div>
 
                           {/* Remove */}
@@ -928,7 +937,7 @@ export default function OnboardingPage() {
                         {/* Sizes / Pack sizes */}
                         <div className="px-3 pb-3">
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                            <span className="text-[11px] font-medium text-warm-gray">Sizes</span>
+                            <span className="text-[11px] font-medium text-warm-gray">{nicheLabels.sizes}</span>
                             {/* Quick-add common sizes — dynamic per niche */}
                             {((['snacks', 'bakery', 'tiffin'].includes(niche as string))
                               ? ['250gm', '500gm', '1kg', '2kg']
