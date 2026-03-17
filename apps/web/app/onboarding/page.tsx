@@ -258,24 +258,31 @@ export default function OnboardingPage() {
         setError(`Catalog load error: ${catalogErr.message}`);
       }
 
+      // Static catalog has ingredients — use it to enrich DB products
+      const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
+
       if (dbProducts && dbProducts.length > 0) {
-        setCatalogProducts(dbProducts.map((p: any) => ({
-          name: p.name,
-          category: p.category,
-          parentCategory: p.parent_category,
-          title: p.title,
-          description: p.description,
-          highlights: p.highlights,
-          variants: p.variants || [],
-          quantity: p.quantity || '1',
-          priceMin: p.price_min,
-          priceMax: p.price_max,
-          dietary: p.dietary || [],
-          pexelsQuery: p.pexels_query,
-          imageUrl: p.image_url,
-        })));
+        setCatalogProducts(dbProducts.map((p: any) => {
+          // Try to get ingredients from static catalog (DB catalog_products may not have it)
+          const staticMatch = staticProducts.find(sp => sp.name === p.name);
+          return {
+            name: p.name,
+            category: p.category,
+            parentCategory: p.parent_category,
+            title: p.title,
+            description: p.description,
+            highlights: p.highlights,
+            variants: p.variants || [],
+            quantity: p.quantity || '1',
+            priceMin: p.price_min,
+            priceMax: p.price_max,
+            dietary: p.dietary || [],
+            ingredients: p.ingredients || staticMatch?.ingredients || undefined,
+            pexelsQuery: p.pexels_query,
+            imageUrl: p.image_url,
+          };
+        }));
       } else {
-        const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
         setCatalogProducts(staticProducts);
       }
     })();
