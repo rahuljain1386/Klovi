@@ -27,48 +27,41 @@ export async function GET(request: Request) {
     return new Response('Seller not found', { status: 404 });
   }
 
-  // Get products WITH images
   const { data: products } = await supabase
     .from('products')
-    .select('name, price, currency, images')
+    .select('name, price, currency')
     .eq('seller_id', seller.id)
     .eq('status', 'active')
     .order('sort_order')
-    .limit(6);
+    .limit(8);
 
-  const productList = (products || []).slice(0, 6);
+  const productList = (products || []).slice(0, 8);
   const businessName = seller.business_name || 'My Shop';
   const tagline = seller.tagline || seller.ai_tagline || '';
   const launchOffer = seller.launch_offer || '';
   const cityName = seller.city || '';
   const niche = seller.niche || seller.category || 'snacks';
+  const currency = productList[0]?.currency === 'USD' ? '$' : '₹';
 
-  // Collect product images
-  const productImages: string[] = [];
-  for (const p of productList) {
-    if (p.images && Array.isArray(p.images) && p.images[0]) {
-      productImages.push(p.images[0]);
-    }
-  }
-
-  // Niche-specific warm color palettes — rich and premium
-  const palettes: Record<string, { bg: string; bgEnd: string; accent: string; text: string; sub: string; glow: string }> = {
-    snacks:            { bg: '#2d1810', bgEnd: '#1a0f08', accent: '#f59e0b', text: '#fff8e1', sub: '#d4a574', glow: 'rgba(245,158,11,0.3)' },
-    bakery:            { bg: '#2d1020', bgEnd: '#1a0812', accent: '#f472b6', text: '#fef1f7', sub: '#d4a0b8', glow: 'rgba(244,114,182,0.3)' },
-    tiffin:            { bg: '#1a2010', bgEnd: '#0f1408', accent: '#84cc16', text: '#f7fee7', sub: '#a8c878', glow: 'rgba(132,204,22,0.3)' },
-    coaching:          { bg: '#0f1a2d', bgEnd: '#08101a', accent: '#60a5fa', text: '#eff6ff', sub: '#7da0c4', glow: 'rgba(96,165,250,0.3)' },
-    spiritual_healing: { bg: '#1a102d', bgEnd: '#10081a', accent: '#a78bfa', text: '#f5f3ff', sub: '#9a8ab8', glow: 'rgba(167,139,250,0.3)' },
-    beauty:            { bg: '#2d1a20', bgEnd: '#1a1012', accent: '#fb7185', text: '#fff1f2', sub: '#c89098', glow: 'rgba(251,113,133,0.3)' },
-    jewelry:           { bg: '#1a1a2d', bgEnd: '#0f0f1a', accent: '#c4b5fd', text: '#f5f3ff', sub: '#9a94b8', glow: 'rgba(196,181,253,0.3)' },
-    crafts:            { bg: '#1a2420', bgEnd: '#0f1612', accent: '#34d399', text: '#ecfdf5', sub: '#7ab898', glow: 'rgba(52,211,153,0.3)' },
-    food:              { bg: '#2d1810', bgEnd: '#1a0f08', accent: '#f59e0b', text: '#fff8e1', sub: '#d4a574', glow: 'rgba(245,158,11,0.3)' },
-    healing:           { bg: '#1a102d', bgEnd: '#10081a', accent: '#a78bfa', text: '#f5f3ff', sub: '#9a8ab8', glow: 'rgba(167,139,250,0.3)' },
-    services:          { bg: '#0f1a2d', bgEnd: '#08101a', accent: '#60a5fa', text: '#eff6ff', sub: '#7da0c4', glow: 'rgba(96,165,250,0.3)' },
+  // Niche-specific palettes
+  const palettes: Record<string, { bg: string; bgEnd: string; accent: string; accentSoft: string; text: string; sub: string; glow: string; cardBg: string; divider: string }> = {
+    snacks:            { bg: '#1c1108', bgEnd: '#0f0a04', accent: '#f59e0b', accentSoft: '#f59e0b30', text: '#fff8e1', sub: '#c9a06a', glow: 'rgba(245,158,11,0.15)', cardBg: 'rgba(245,158,11,0.08)', divider: 'rgba(245,158,11,0.2)' },
+    bakery:            { bg: '#1e0a16', bgEnd: '#10050c', accent: '#f472b6', accentSoft: '#f472b630', text: '#fef1f7', sub: '#c48aa8', glow: 'rgba(244,114,182,0.15)', cardBg: 'rgba(244,114,182,0.08)', divider: 'rgba(244,114,182,0.2)' },
+    tiffin:            { bg: '#0f1a08', bgEnd: '#080e04', accent: '#84cc16', accentSoft: '#84cc1630', text: '#f7fee7', sub: '#8aac5e', glow: 'rgba(132,204,22,0.15)', cardBg: 'rgba(132,204,22,0.08)', divider: 'rgba(132,204,22,0.2)' },
+    coaching:          { bg: '#080f1e', bgEnd: '#040810', accent: '#60a5fa', accentSoft: '#60a5fa30', text: '#eff6ff', sub: '#6d90b8', glow: 'rgba(96,165,250,0.15)', cardBg: 'rgba(96,165,250,0.08)', divider: 'rgba(96,165,250,0.2)' },
+    spiritual_healing: { bg: '#100820', bgEnd: '#080410', accent: '#a78bfa', accentSoft: '#a78bfa30', text: '#f5f3ff', sub: '#8a7aaa', glow: 'rgba(167,139,250,0.15)', cardBg: 'rgba(167,139,250,0.08)', divider: 'rgba(167,139,250,0.2)' },
+    beauty:            { bg: '#1e0f14', bgEnd: '#10080a', accent: '#fb7185', accentSoft: '#fb718530', text: '#fff1f2', sub: '#b88090', glow: 'rgba(251,113,133,0.15)', cardBg: 'rgba(251,113,133,0.08)', divider: 'rgba(251,113,133,0.2)' },
+    jewelry:           { bg: '#0f0f1e', bgEnd: '#080810', accent: '#c4b5fd', accentSoft: '#c4b5fd30', text: '#f5f3ff', sub: '#8a84aa', glow: 'rgba(196,181,253,0.15)', cardBg: 'rgba(196,181,253,0.08)', divider: 'rgba(196,181,253,0.2)' },
+    crafts:            { bg: '#0a1a14', bgEnd: '#050e0a', accent: '#34d399', accentSoft: '#34d39930', text: '#ecfdf5', sub: '#6aaa88', glow: 'rgba(52,211,153,0.15)', cardBg: 'rgba(52,211,153,0.08)', divider: 'rgba(52,211,153,0.2)' },
+    food:              { bg: '#1c1108', bgEnd: '#0f0a04', accent: '#f59e0b', accentSoft: '#f59e0b30', text: '#fff8e1', sub: '#c9a06a', glow: 'rgba(245,158,11,0.15)', cardBg: 'rgba(245,158,11,0.08)', divider: 'rgba(245,158,11,0.2)' },
+    healing:           { bg: '#100820', bgEnd: '#080410', accent: '#a78bfa', accentSoft: '#a78bfa30', text: '#f5f3ff', sub: '#8a7aaa', glow: 'rgba(167,139,250,0.15)', cardBg: 'rgba(167,139,250,0.08)', divider: 'rgba(167,139,250,0.2)' },
+    services:          { bg: '#080f1e', bgEnd: '#040810', accent: '#60a5fa', accentSoft: '#60a5fa30', text: '#eff6ff', sub: '#6d90b8', glow: 'rgba(96,165,250,0.15)', cardBg: 'rgba(96,165,250,0.08)', divider: 'rgba(96,165,250,0.2)' },
   };
   const c = palettes[niche] || palettes.snacks;
 
-  const hasImages = productImages.length >= 1;
-  const productNames = productList.map(p => p.name).slice(0, 5);
+  // Split products into two columns
+  const col1 = productList.slice(0, Math.ceil(productList.length / 2));
+  const col2 = productList.slice(Math.ceil(productList.length / 2));
 
   return new ImageResponse(
     (
@@ -84,15 +77,19 @@ export async function GET(request: Request) {
           overflow: 'hidden',
         }}
       >
-        {/* Subtle radial glow behind the name */}
+        {/* Decorative corner accents */}
+        <div style={{ display: 'flex', position: 'absolute', top: 0, left: 0, width: 200, height: 200, borderBottom: `1px solid ${c.divider}`, borderRight: `1px solid ${c.divider}`, borderBottomRightRadius: 200 }} />
+        <div style={{ display: 'flex', position: 'absolute', bottom: 0, right: 0, width: 200, height: 200, borderTop: `1px solid ${c.divider}`, borderLeft: `1px solid ${c.divider}`, borderTopLeftRadius: 200 }} />
+
+        {/* Large glow behind business name */}
         <div
           style={{
             display: 'flex',
             position: 'absolute',
-            top: 80,
+            top: 40,
             left: '50%',
-            width: 600,
-            height: 600,
+            width: 700,
+            height: 400,
             borderRadius: 9999,
             background: `radial-gradient(circle, ${c.glow} 0%, transparent 70%)`,
             transform: 'translateX(-50%)',
@@ -100,154 +97,166 @@ export async function GET(request: Request) {
         />
 
         {/* Top accent line */}
-        <div style={{ display: 'flex', width: '100%', height: 4, background: `linear-gradient(90deg, transparent 10%, ${c.accent} 50%, transparent 90%)` }} />
+        <div style={{ display: 'flex', width: '100%', height: 3, background: `linear-gradient(90deg, transparent 5%, ${c.accent} 50%, transparent 95%)` }} />
 
-        {/* ─── Top Section: Business Identity ─── */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '70px 60px 20px', zIndex: 1 }}>
-          {/* Small "NOW OPEN" badge */}
+        {/* ─── Header: Badge + Business Name + Tagline ─── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '52px 60px 0', zIndex: 1 }}>
+          {/* Badge */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              border: `2px solid ${c.accent}`,
+              border: `1.5px solid ${c.accent}`,
               borderRadius: 999,
-              padding: '8px 28px',
-              marginBottom: 28,
+              padding: '6px 24px',
+              marginBottom: 20,
             }}
           >
-            <span style={{ fontSize: 18, fontWeight: 700, color: c.accent, letterSpacing: 4, textTransform: 'uppercase' as const }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: c.accent, letterSpacing: 4, textTransform: 'uppercase' as const }}>
               Now Taking Orders
             </span>
           </div>
 
-          {/* Business name — large, elegant */}
-          <div style={{ display: 'flex', marginBottom: 16, textAlign: 'center' as const }}>
-            <span
-              style={{
-                fontSize: businessName.length > 20 ? 64 : businessName.length > 14 ? 76 : 88,
-                fontWeight: 900,
-                color: c.text,
-                letterSpacing: -1,
-                lineHeight: 1.1,
-              }}
-            >
-              {businessName}
-            </span>
-          </div>
+          {/* Business name */}
+          <span
+            style={{
+              fontSize: businessName.length > 20 ? 56 : businessName.length > 14 ? 68 : 80,
+              fontWeight: 900,
+              color: c.text,
+              letterSpacing: -1,
+              lineHeight: 1.1,
+              textAlign: 'center' as const,
+              marginBottom: 12,
+            }}
+          >
+            {businessName}
+          </span>
 
           {/* Tagline */}
           {tagline ? (
-            <div style={{ display: 'flex', marginBottom: 10, maxWidth: 800, textAlign: 'center' as const }}>
-              <span style={{ fontSize: 26, color: c.sub, fontStyle: 'italic' as const, lineHeight: 1.4 }}>
-                {tagline.length > 80 ? tagline.slice(0, 77) + '...' : tagline}
-              </span>
-            </div>
+            <span style={{ fontSize: 22, color: c.sub, fontStyle: 'italic' as const, lineHeight: 1.4, textAlign: 'center' as const, maxWidth: 700 }}>
+              {tagline.length > 80 ? tagline.slice(0, 77) + '...' : tagline}
+            </span>
           ) : null}
 
           {/* City */}
           {cityName ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <span style={{ fontSize: 20, color: c.sub, fontWeight: 500 }}>
-                {cityName}
-              </span>
-            </div>
+            <span style={{ fontSize: 16, color: c.sub, fontWeight: 500, marginTop: 8, letterSpacing: 2 }}>
+              {cityName.toUpperCase()}
+            </span>
           ) : null}
         </div>
 
-        {/* ─── Middle Section: Product Images or Names ─── */}
-        {hasImages ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16, padding: '30px 50px', zIndex: 1, flexWrap: 'wrap' }}>
-            {productImages.slice(0, 4).map((imgUrl, i) => {
-              const count = Math.min(productImages.length, 4);
-              const size = count <= 2 ? 340 : count === 3 ? 260 : 220;
-              return (
-                <div
-                  key={i}
-                  style={{
-                    display: 'flex',
-                    width: size,
-                    height: size,
-                    borderRadius: 20,
-                    overflow: 'hidden',
-                    border: `3px solid rgba(255,255,255,0.1)`,
-                    boxShadow: `0 12px 40px rgba(0,0,0,0.4)`,
-                  }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imgUrl}
-                    alt=""
-                    width={size}
-                    height={size}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          // No images — show product names elegantly
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 80px', gap: 12, zIndex: 1 }}>
-            {productNames.map((name, i) => (
+        {/* Decorative divider */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 100px 16px', zIndex: 1 }}>
+          <div style={{ display: 'flex', flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${c.divider})` }} />
+          <span style={{ fontSize: 18, color: c.accent, padding: '0 16px' }}>✦</span>
+          <span style={{ fontSize: 12, color: c.sub, letterSpacing: 3, padding: '0 8px', textTransform: 'uppercase' as const }}>
+            Our Menu
+          </span>
+          <span style={{ fontSize: 18, color: c.accent, padding: '0 16px' }}>✦</span>
+          <div style={{ display: 'flex', flex: 1, height: 1, background: `linear-gradient(90deg, ${c.divider}, transparent)` }} />
+        </div>
+
+        {/* ─── Product Menu: Two-column layout ─── */}
+        <div style={{ display: 'flex', padding: '0 70px', gap: 24, zIndex: 1, flex: 1 }}>
+          {/* Left column */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+            {col1.map((p, i) => (
               <div
                 key={i}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  background: 'rgba(255,255,255,0.08)',
-                  borderRadius: 14,
-                  padding: '14px 40px',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  justifyContent: 'space-between',
+                  background: c.cardBg,
+                  borderRadius: 12,
+                  padding: '14px 20px',
+                  border: `1px solid ${c.divider}`,
                 }}
               >
-                <span style={{ fontSize: 24, color: c.text, fontWeight: 600 }}>{name}</span>
+                <span style={{ fontSize: 20, color: c.text, fontWeight: 600, flex: 1 }}>
+                  {p.name.length > 18 ? p.name.slice(0, 16) + '...' : p.name}
+                </span>
+                <span style={{ fontSize: 20, color: c.accent, fontWeight: 700, marginLeft: 12 }}>
+                  {currency}{p.price}
+                </span>
               </div>
             ))}
           </div>
-        )}
 
-        {/* ─── Bottom Section: Offer + CTA ─── */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 60px', marginTop: 'auto', marginBottom: 60, zIndex: 1 }}>
+          {/* Right column */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 6 }}>
+            {col2.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: c.cardBg,
+                  borderRadius: 12,
+                  padding: '14px 20px',
+                  border: `1px solid ${c.divider}`,
+                }}
+              >
+                <span style={{ fontSize: 20, color: c.text, fontWeight: 600, flex: 1 }}>
+                  {p.name.length > 18 ? p.name.slice(0, 16) + '...' : p.name}
+                </span>
+                <span style={{ fontSize: 20, color: c.accent, fontWeight: 700, marginLeft: 12 }}>
+                  {currency}{p.price}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Bottom: Offer + CTA ─── */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '20px 60px 50px', zIndex: 1 }}>
           {/* Launch offer */}
           {launchOffer ? (
             <div
               style={{
                 display: 'flex',
-                background: c.accent,
-                borderRadius: 14,
-                padding: '14px 36px',
-                marginBottom: 28,
-                boxShadow: `0 4px 20px ${c.glow}`,
+                background: c.accentSoft,
+                borderRadius: 12,
+                padding: '10px 32px',
+                marginBottom: 20,
+                border: `1px solid ${c.divider}`,
               }}
             >
-              <span style={{ fontSize: 22, fontWeight: 700, color: '#fff' }}>{launchOffer}</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: c.accent }}>
+                {launchOffer}
+              </span>
             </div>
           ) : null}
 
-          {/* Order button */}
+          {/* Order CTA */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              background: `linear-gradient(135deg, ${c.accent}, ${c.accent}dd)`,
-              borderRadius: 60,
-              padding: '24px 72px',
-              marginBottom: 20,
+              background: c.accent,
+              borderRadius: 50,
+              padding: '18px 64px',
+              marginBottom: 16,
               boxShadow: `0 8px 32px ${c.glow}`,
             }}
           >
-            <span style={{ fontSize: 32, fontWeight: 800, color: '#fff', letterSpacing: 1 }}>Order Now</span>
+            <span style={{ fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: 1 }}>
+              Order on WhatsApp
+            </span>
           </div>
 
           {/* URL */}
-          <div style={{ display: 'flex' }}>
-            <span style={{ fontSize: 20, color: c.sub, letterSpacing: 1 }}>kloviapp.com/{slug}</span>
-          </div>
+          <span style={{ fontSize: 18, color: c.sub, letterSpacing: 1 }}>
+            kloviapp.com/{slug}
+          </span>
         </div>
 
         {/* Bottom accent line */}
-        <div style={{ display: 'flex', width: '100%', height: 4, background: `linear-gradient(90deg, transparent 10%, ${c.accent} 50%, transparent 90%)`, position: 'absolute', bottom: 0 }} />
+        <div style={{ display: 'flex', width: '100%', height: 3, background: `linear-gradient(90deg, transparent 5%, ${c.accent} 50%, transparent 95%)`, position: 'absolute', bottom: 0 }} />
       </div>
     ),
     {
