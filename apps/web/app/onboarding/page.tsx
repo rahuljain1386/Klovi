@@ -228,7 +228,7 @@ export default function OnboardingPage() {
     );
   }, [router]);
 
-  // ─── Load catalog: static data instantly, then enrich with DB images ───
+  // ─── Load catalog: show static instantly, replace with DB (has images) ───
   useEffect(() => {
     const nicheChanged = niche !== prevNicheRef.current;
     prevNicheRef.current = niche;
@@ -246,27 +246,39 @@ export default function OnboardingPage() {
     const categories = NICHE_TO_CATEGORIES[niche] || [];
     const staticProducts = CATALOG_PRODUCTS.filter(p => categories.includes(p.parentCategory));
 
-    // Show static catalog INSTANTLY (no network wait)
+    // Show static catalog INSTANTLY (no network wait) — no images but usable
     setCatalogProducts(staticProducts);
 
-    // Then enrich with DB images in background
+    // Then load full DB products (with DALL-E images) and replace
     (async () => {
       const supabase = createClient();
       const { data: dbProducts } = await supabase
         .from('catalog_products')
-        .select('name, parent_category, image_url, ingredients')
+        .select('*')
         .in('parent_category', categories)
-        .eq('enabled', true);
+        .eq('enabled', true)
+        .order('sort_order');
 
       if (dbProducts && dbProducts.length > 0) {
-        const dbMap = new Map(dbProducts.map((p: any) => [p.name, p]));
-        setCatalogProducts(prev => prev.map(p => {
-          const db = dbMap.get(p.name);
-          if (!db) return p;
+        // Build a map of static products for ingredient fallback
+        const staticMap = new Map(staticProducts.map(p => [p.name, p]));
+        setCatalogProducts(dbProducts.map((p: any) => {
+          const staticMatch = staticMap.get(p.name);
           return {
-            ...p,
-            imageUrl: db.image_url || p.imageUrl,
-            ingredients: db.ingredients || p.ingredients,
+            name: p.name,
+            category: p.category,
+            parentCategory: p.parent_category,
+            title: p.title,
+            description: p.description,
+            highlights: p.highlights,
+            variants: p.variants || [],
+            quantity: p.quantity || '1',
+            priceMin: p.price_min,
+            priceMax: p.price_max,
+            dietary: p.dietary || [],
+            ingredients: p.ingredients || staticMatch?.ingredients || undefined,
+            pexelsQuery: p.pexels_query,
+            imageUrl: p.image_url,
           };
         }));
       }
