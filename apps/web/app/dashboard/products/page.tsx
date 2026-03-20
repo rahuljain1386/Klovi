@@ -15,6 +15,7 @@ type Product = {
   image_url: string | null;
   images: string[] | null;
   category: string | null;
+  ingredients: string | null;
 };
 
 export default function ProductsPage() {
@@ -26,7 +27,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   // Edit state
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; description: string; price: string }>({ name: '', description: '', price: '' });
+  const [editForm, setEditForm] = useState<{ name: string; description: string; price: string; ingredients: string }>({ name: '', description: '', price: '', ingredients: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
   useEffect(() => {
@@ -128,7 +129,7 @@ export default function ProductsPage() {
 
   const startEdit = (product: Product) => {
     setEditingProduct(product);
-    setEditForm({ name: product.name, description: product.description || '', price: String(product.price) });
+    setEditForm({ name: product.name, description: product.description || '', price: String(product.price), ingredients: product.ingredients || '' });
     setEditImageFile(null);
   };
 
@@ -147,11 +148,12 @@ export default function ProductsPage() {
       name: editForm.name,
       description: editForm.description || null,
       price: parseFloat(editForm.price),
+      ingredients: editForm.ingredients || null,
       images,
     }).eq('id', editingProduct.id);
 
     setProducts(prev => prev.map(p =>
-      p.id === editingProduct.id ? { ...p, name: editForm.name, description: editForm.description || null, price: parseFloat(editForm.price), images } as Product : p
+      p.id === editingProduct.id ? { ...p, name: editForm.name, description: editForm.description || null, price: parseFloat(editForm.price), ingredients: editForm.ingredients || null, images } as Product : p
     ));
     setEditingProduct(null);
     setEditImageFile(null);
@@ -271,6 +273,13 @@ export default function ProductsPage() {
                   <p className="text-lg font-bold text-ink mt-1">
                     {product.currency === 'INR' ? '\u20B9' : '$'}{product.price}
                   </p>
+                  {product.ingredients && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {product.ingredients.split(',').map((ing, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-amber/10 text-amber text-[11px] rounded-full">{ing.trim()}</span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Controls row */}
                   <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -347,6 +356,38 @@ export default function ProductsPage() {
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Price</label>
                 <input type="number" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))} className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:border-amber" />
+              </div>
+              <div>
+                <label className="text-xs text-warm-gray block mb-1">Ingredients / Materials</label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {(editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean).map((ing, i) => (
+                    <span key={i} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber/10 border border-amber/20 rounded-full text-xs text-ink">
+                      {ing}
+                      <button onClick={() => {
+                        const parts = (editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                        parts.splice(i, 1);
+                        setEditForm(f => ({ ...f, ingredients: parts.join(', ') }));
+                      }} className="text-warm-gray hover:text-rose ml-0.5 text-sm leading-none">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-amber"
+                  placeholder="Type and press Enter to add"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim().replace(/,$/,'');
+                      if (val) {
+                        const current = (editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                        current.push(val);
+                        setEditForm(f => ({ ...f, ingredients: current.join(', ') }));
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
               </div>
             </div>
             <div className="p-5 border-t border-border flex gap-3 justify-end">
