@@ -55,6 +55,10 @@ export default function AdminCatalog() {
   // Generate AI image
   const [generatingAI, setGeneratingAI] = useState<string | null>(null);
 
+  // Sync ingredients
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState('');
+
   // Bulk generation
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0, currentName: '', failed: 0 });
@@ -206,6 +210,18 @@ export default function AdminCatalog() {
 
   const stopBulkGeneration = () => {
     bulkStopRef.stop = true;
+  };
+
+  const syncIngredients = async () => {
+    setSyncing(true); setSyncResult('');
+    try {
+      const res = await fetch('/api/admin/sync-catalog-ingredients', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { setSyncResult(data.error); setSyncing(false); return; }
+      setSyncResult(`Done! Updated: ${data.updated}, Already had: ${data.skipped}, No match: ${data.noMatch}`);
+      loadData(); // refresh products
+    } catch (err: any) { setSyncResult(err.message); }
+    setSyncing(false);
   };
 
   // Save edited product
@@ -366,7 +382,17 @@ export default function AdminCatalog() {
           >
             ✨ Regenerate All ({products.length})
           </button>
+          <button
+            onClick={syncIngredients}
+            disabled={syncing}
+            className="px-4 py-2 bg-amber text-white rounded-lg text-sm font-medium hover:bg-amber/90 disabled:opacity-50"
+          >
+            {syncing ? 'Syncing...' : `Sync Ingredients (${products.filter(p => !p.ingredients).length} missing)`}
+          </button>
         </div>
+      )}
+      {syncResult && (
+        <p className={`text-xs mb-4 px-1 ${syncResult.startsWith('Done') ? 'text-green-600' : 'text-rose-600'}`}>{syncResult}</p>
       )}
 
       {/* Category tabs with enable/disable toggle */}
@@ -519,6 +545,16 @@ export default function AdminCatalog() {
                 {product.variants.length > 0 && (
                   <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                     {product.variants.length} variants
+                  </span>
+                )}
+                {product.ingredients && (
+                  <span className="text-[10px] bg-amber/10 text-amber px-2 py-0.5 rounded-full truncate max-w-[200px]" title={product.ingredients}>
+                    {product.ingredients.split(',').length} ingredients
+                  </span>
+                )}
+                {!product.ingredients && (
+                  <span className="text-[10px] bg-rose-50 text-rose-400 px-2 py-0.5 rounded-full">
+                    no ingredients
                   </span>
                 )}
               </div>
