@@ -120,6 +120,12 @@ export default function OnboardingPage() {
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [catalogFilter, setCatalogFilter] = useState<string | null>(null);
 
+  // Import mode — upload images or paste website URL
+  const [importFiles, setImportFiles] = useState<File[]>([]);
+  const [importUrl, setImportUrl] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
   // Product edits — overrides keyed by product name (catalog) or custom ID
   interface VariantEdit { label: string; price: number }
   interface ProductEdit {
@@ -612,6 +618,81 @@ export default function OnboardingPage() {
   };
   const selectedKeys = Array.from(selectedProducts);
 
+  // ─── Import helpers ─────────────────────────────────────────────────────
+  const compressImage = async (file: File, maxDim = 1600): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= maxDim && height <= maxDim) { resolve(file); return; }
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob!], file.name, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.85);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handleImportImages = async () => {
+    if (!importFiles.length) return;
+    setImporting(true); setImportError('');
+    try {
+      const formData = new FormData();
+      formData.append('niche', niche || 'general');
+      for (const file of importFiles) {
+        const compressed = await compressImage(file);
+        formData.append('images', compressed);
+      }
+      const res = await fetch('/api/onboarding/extract-from-images', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) { setImportError(data.error || 'Extraction failed'); setImporting(false); return; }
+      if (!data.products?.length) { setImportError('No products found in these images. Try clearer photos.'); setImporting(false); return; }
+      addImportedProducts(data.products);
+      setImportFiles([]);
+    } catch (err: any) { setImportError(err.message); }
+    setImporting(false);
+  };
+
+  const handleImportWebsite = async () => {
+    if (!importUrl) return;
+    setImporting(true); setImportError('');
+    try {
+      const res = await fetch('/api/onboarding/extract-from-website', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: importUrl, niche: niche || 'general' }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setImportError(data.error || 'Extraction failed'); setImporting(false); return; }
+      if (!data.products?.length) { setImportError('No products found on this page.'); setImporting(false); return; }
+      addImportedProducts(data.products);
+      setImportUrl('');
+    } catch (err: any) { setImportError(err.message); }
+    setImporting(false);
+  };
+
+  const addImportedProducts = (products: { name: string; description: string; price: number; category: string; quantity: string; ingredients: string }[]) => {
+    const newEdits: Record<string, ProductEdit> = {};
+    const newKeys: string[] = [];
+    products.forEach((p, i) => {
+      const key = `imported_${Date.now()}_${i}`;
+      newEdits[key] = {
+        name: p.name, description: p.description || '', price: p.price || 0,
+        image: null, category: p.category || '', quantity: p.quantity || '',
+        ingredients: p.ingredients || '', isCustom: true, variants: [],
+      };
+      newKeys.push(key);
+    });
+    setProductEdits(prev => ({ ...prev, ...newEdits }));
+    setSelectedProducts(prev => { const next = new Set(prev); newKeys.forEach(k => next.add(k)); return next; });
+  };
+
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-cream">
@@ -773,8 +854,79 @@ export default function OnboardingPage() {
         {step === 'products' && (
           <div className="px-4 pb-32 space-y-4">
             <div>
-              <h2 className="font-display text-xl font-black text-ink mb-1">Pick your products</h2>
-              <p className="text-warm-gray text-sm">Tap to add from catalog, then edit everything below</p>
+              <h2 className="font-display text-xl font-black text-ink mb-1">Add your products</h2>
+              <p className="text-warm-gray text-sm">Upload photos, paste a link, or pick from catalog</p>
+            </div>
+
+            {/* ── Quick Import: Images + Website ── */}
+            <div className="space-y-3">
+              {/* Image upload */}
+              <div className="bg-white rounded-xl border border-border p-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <div className="w-10 h-10 rounded-lg bg-amber/10 flex items-center justify-center text-lg flex-shrink-0">📸</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink">Upload flyers or product photos</p>
+                    <p className="text-[11px] text-warm-gray">Menu cards, price lists, product images — AI reads them</p>
+                  </div>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={e => {
+                    const files = Array.from(e.target.files || []).slice(0, 5);
+                    if (files.length) setImportFiles(prev => [...prev, ...files].slice(0, 5));
+                    e.target.value = '';
+                  }} />
+                  <span className="text-amber text-xs font-medium flex-shrink-0">Choose</span>
+                </label>
+
+                {/* Selected file thumbnails */}
+                {importFiles.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                      {importFiles.map((f, i) => (
+                        <div key={i} className="relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border border-border">
+                          <img src={URL.createObjectURL(f)} alt="" className="w-full h-full object-cover" />
+                          <button onClick={() => setImportFiles(prev => prev.filter((_, j) => j !== i))}
+                            className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 text-white rounded-full text-[10px] flex items-center justify-center">&times;</button>
+                        </div>
+                      ))}
+                      {importFiles.length < 5 && (
+                        <label className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-warm-gray text-lg cursor-pointer hover:border-amber">
+                          +
+                          <input type="file" accept="image/*" multiple className="hidden" onChange={e => {
+                            const files = Array.from(e.target.files || []);
+                            setImportFiles(prev => [...prev, ...files].slice(0, 5));
+                            e.target.value = '';
+                          }} />
+                        </label>
+                      )}
+                    </div>
+                    <button onClick={handleImportImages} disabled={importing}
+                      className="w-full py-2 bg-amber text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+                      {importing ? 'Reading images...' : `Extract Products from ${importFiles.length} image${importFiles.length > 1 ? 's' : ''}`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Website URL */}
+              <div className="bg-white rounded-xl border border-border p-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-lg flex-shrink-0">🌐</div>
+                  <div className="flex-1 min-w-0">
+                    <input type="url" value={importUrl} onChange={e => setImportUrl(e.target.value)}
+                      placeholder="Paste your website link"
+                      className="w-full text-sm text-ink placeholder:text-warm-gray/60 focus:outline-none" />
+                  </div>
+                  {importUrl && (
+                    <button onClick={handleImportWebsite} disabled={importing}
+                      className="px-3 py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-lg flex-shrink-0 disabled:opacity-50">
+                      {importing ? 'Scanning...' : 'Import'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {importError && (
+                <p className="text-rose text-xs px-1">{importError}</p>
+              )}
             </div>
 
             {/* ── Catalog Picker (compact horizontal scroll) ── */}
