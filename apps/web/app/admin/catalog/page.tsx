@@ -25,6 +25,7 @@ interface CatalogProduct {
   price_min: number;
   price_max: number;
   dietary: string[];
+  ingredients: string | null;
   pexels_query: string | null;
   image_url: string | null;
   enabled: boolean;
@@ -228,6 +229,7 @@ export default function AdminCatalog() {
       price_max: editForm.price_max ?? editingProduct.price_max,
       quantity: editForm.quantity ?? editingProduct.quantity,
       variants: editForm.variants ?? editingProduct.variants,
+      ingredients: editForm.ingredients ?? editingProduct.ingredients,
       pexels_query: editForm.pexels_query ?? editingProduct.pexels_query,
       image_url: imageUrl,
     };
@@ -586,6 +588,38 @@ export default function AdminCatalog() {
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Variants (comma-separated)</label>
                 <input value={(editForm.variants || []).join(', ')} onChange={e => setEditForm(f => ({ ...f, variants: e.target.value.split(',').map(v => v.trim()).filter(Boolean) }))} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber" />
+              </div>
+              <div>
+                <label className="text-xs text-warm-gray block mb-1">Ingredients / Materials</label>
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {(editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean).map((ing, i) => (
+                    <span key={i} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-amber/10 border border-amber/20 rounded-full text-xs text-ink">
+                      {ing}
+                      <button onClick={() => {
+                        const parts = (editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                        parts.splice(i, 1);
+                        setEditForm(f => ({ ...f, ingredients: parts.join(', ') }));
+                      }} className="text-warm-gray hover:text-rose ml-0.5 text-sm leading-none">&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber"
+                  placeholder="Type and press Enter to add"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim().replace(/,$/,'');
+                      if (val) {
+                        const current = (editForm.ingredients || '').split(',').map(s => s.trim()).filter(Boolean);
+                        current.push(val);
+                        setEditForm(f => ({ ...f, ingredients: current.join(', ') }));
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
               </div>
               <div>
                 <label className="text-xs text-warm-gray block mb-1">Pexels Search Query</label>
