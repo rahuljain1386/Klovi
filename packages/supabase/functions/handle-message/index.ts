@@ -144,6 +144,241 @@ function buildProductCatalog(products: any[]): string {
   }).join('\n')
 }
 
+// Intake templates for service categories — qualifying questions + packages
+const INTAKE_TEMPLATES: Record<string, { label: string; questions: { id: string; q: string; opts: string[]; freeText?: boolean; sensitive?: string }[]; packages: { name: string; sessions: string; duration: string; includes: string[]; price: string }[] }> = {
+  fitness: {
+    label: 'Fitness Coaching',
+    questions: [
+      { id: 'goal', q: "What's your main fitness goal?", opts: ['Weight loss / fat loss', 'Muscle building / toning', 'General fitness & stamina', 'Post-pregnancy recovery', 'Managing a health condition'] },
+      { id: 'level', q: 'Have you trained before?', opts: ['Complete beginner', 'On and off', 'Used to train, stopped', 'Currently active'] },
+      { id: 'body', q: 'Share your approximate height (feet) and current weight (kg):', opts: [], freeText: true },
+      { id: 'health', q: 'Any health concerns?', opts: ['No issues', 'Back/knee/joint pain', 'Diabetes/BP/thyroid', 'PCOD/hormonal', 'Recent surgery/pregnancy'] },
+      { id: 'schedule', q: 'Preferred schedule?', opts: ['Morning (6-9 AM)', 'Afternoon (12-3 PM)', 'Evening (5-8 PM)', 'Flexible'] },
+    ],
+    packages: [
+      { name: 'Starter (1 Month)', sessions: '12 sessions', duration: '1 month', includes: ['Basic diet tips', 'WhatsApp support', 'Body assessment'], price: '₹2,000 - 4,000' },
+      { name: 'Transformation (3 Months)', sessions: '36 sessions', duration: '3 months', includes: ['Personalized diet plan', 'Weekly check-in', 'Progress tracking'], price: '₹5,000 - 10,000' },
+      { name: 'Premium PT (1 Month)', sessions: '20 sessions', duration: '1 month', includes: ['Custom meal plan', 'Daily guidance', 'Supplement advice', '1-on-1 training'], price: '₹8,000 - 15,000' },
+    ],
+  },
+  yoga: {
+    label: 'Yoga',
+    questions: [
+      { id: 'goal', q: 'What brings you to yoga?', opts: ['Stress relief & mental peace', 'Back/body pain / flexibility', 'Weight management', 'Pregnancy / post-natal', 'Spiritual growth', 'General health'] },
+      { id: 'level', q: 'Practiced yoga before?', opts: ['Complete beginner', 'Tried a few times', 'Practiced before, restarting', 'Regular practitioner'] },
+      { id: 'health', q: 'Any physical conditions?', opts: ['None', 'Back/neck/knee pain', 'BP/diabetes/thyroid', 'Pregnancy', 'Slip disc/sciatica'] },
+      { id: 'mode', q: 'Preferred mode?', opts: ['Online (Zoom/Meet)', 'In-person at studio', 'Home visit'] },
+    ],
+    packages: [
+      { name: 'Foundation (1 Month)', sessions: '8 group sessions', duration: '1 month', includes: ['Basic asanas', 'Breathing techniques', 'Batch of 5-8'], price: '₹1,000 - 2,500' },
+      { name: 'Therapeutic Yoga (1 Month)', sessions: '12 sessions (1:1)', duration: '1 month', includes: ['Customized practice', 'Progress tracking', 'Lifestyle guidance'], price: '₹3,000 - 6,000' },
+      { name: 'Advanced Practice', sessions: '16 sessions', duration: '1 month', includes: ['Pranayama + meditation + asana', 'Personal guidance'], price: '₹4,000 - 8,000' },
+    ],
+  },
+  coaching: {
+    label: 'Tutoring / Academic Coaching',
+    questions: [
+      { id: 'subject', q: 'What does the student need help with?', opts: ['School subjects (Maths, Science, English)', 'Board exam prep (10th/12th)', 'Competitive exams (JEE, NEET)', 'Spoken English', 'Coding / computer skills'] },
+      { id: 'class', q: 'Which class/standard?', opts: ['Nursery - Class 5', 'Class 6-8', 'Class 9-10', 'Class 11-12', 'College / adult'] },
+      { id: 'board', q: 'Which board?', opts: ['CBSE', 'ICSE/ISC', 'State board', 'IB/IGCSE', 'Not applicable'] },
+      { id: 'format', q: 'Preferred class format?', opts: ['1-on-1', 'Small group (2-5)', 'Online classes', 'Home visit'] },
+    ],
+    packages: [
+      { name: 'Basic Tuition (Monthly)', sessions: '12 sessions (3/week)', duration: '1 month', includes: ['1 subject', 'Homework help', 'Test prep'], price: '₹1,500 - 3,000' },
+      { name: 'Board Exam Crash (3 Months)', sessions: '16 sessions/month', duration: '3 months', includes: ['2-3 subjects', 'Mock tests', 'Doubt clearing'], price: '₹4,000 - 8,000' },
+      { name: 'All-Rounder (Monthly)', sessions: '16 sessions', duration: '1 month', includes: ['2 subjects', 'Progress reports', 'Extra exam-time sessions'], price: '₹3,000 - 6,000' },
+    ],
+  },
+  spiritual_healing: {
+    label: 'Spiritual Healing',
+    questions: [
+      { id: 'goal', q: 'What are you looking for?', opts: ['Stress/anxiety relief', 'Relationship/emotional healing', 'Career/financial clarity', 'Physical health support', 'Spiritual growth', 'Curious, want to explore'] },
+      { id: 'experience', q: 'Tried any healing modality before?', opts: ['First time', 'Tried meditation/yoga', 'Had Reiki/energy healing', 'Experienced with multiple'] },
+      { id: 'type', q: 'Which type interests you?', opts: ['Reiki / energy healing', 'Tarot / oracle reading', 'Numerology / astrology', 'Crystal healing', 'Past life regression', 'Not sure - guide me'] },
+      { id: 'mode', q: 'Online or in-person?', opts: ['Online', 'In-person', 'Whichever you recommend'] },
+    ],
+    packages: [
+      { name: 'Discovery Session', sessions: '1 session (45-60 min)', duration: 'Single', includes: ['Assessment', 'Guidance', 'Follow-up message'], price: '₹500 - 1,500' },
+      { name: 'Healing Journey (4 Sessions)', sessions: '4 sessions', duration: '4-6 weeks', includes: ['Combined modalities', 'WhatsApp support', 'Progress tracking'], price: '₹2,500 - 5,000' },
+      { name: 'Deep Transformation (8 Sessions)', sessions: '8 sessions', duration: '2-3 months', includes: ['Full healing protocol', 'Remedy recommendations', 'Ongoing support'], price: '₹5,000 - 10,000' },
+    ],
+  },
+  beauty: {
+    label: 'Beauty / Salon Services',
+    questions: [
+      { id: 'service', q: 'What service are you looking for?', opts: ['Regular salon (facial, waxing, threading)', 'Bridal / wedding makeup', 'Party / event makeup', 'Skin treatment (acne, pigmentation)', 'Hair care (spa, keratin, color)', 'Mehendi / henna'] },
+      { id: 'skin', q: 'Your skin type?', opts: ['Normal', 'Oily / acne-prone', 'Dry / sensitive', 'Combination', 'Not sure'] },
+      { id: 'products', q: 'Product preference?', opts: ['Herbal / organic only', 'Branded (VLCC, Lotus, O3+)', 'No preference', 'Sensitive skin, need hypoallergenic'] },
+      { id: 'location', q: 'Where would you like the service?', opts: ['At your parlour/studio', 'Home visit', 'Want charges for both'] },
+    ],
+    packages: [
+      { name: 'Essential Glow', sessions: '1 visit', duration: '2-3 hours', includes: ['Facial', 'Threading', 'Waxing (arms + legs)'], price: '₹800 - 1,500' },
+      { name: 'Pre-Bridal (5 Sessions)', sessions: '5 sessions', duration: '1-2 months', includes: ['Deep cleansing', 'De-tan', 'Hair spa', 'Trial makeup'], price: '₹5,000 - 12,000' },
+      { name: 'Bridal Day Package', sessions: '1 day', duration: 'Full day', includes: ['HD/airbrush makeup', 'Hairstyling', 'Draping', 'Touch-up kit'], price: '₹8,000 - 25,000' },
+    ],
+  },
+  stitching: {
+    label: 'Stitching / Tailoring',
+    questions: [
+      { id: 'item', q: 'What would you like stitched?', opts: ['Blouse', 'Kurti / kurta', 'Salwar suit (full set)', 'Lehenga / wedding outfit', 'Dress alteration / fitting', 'Other'] },
+      { id: 'work', q: 'Type of work?', opts: ['Simple / plain stitching', 'Designer cut / pattern', 'Heavy work (embroidery, beadwork)', 'Just alteration'] },
+      { id: 'timeline', q: 'When do you need it?', opts: ['No rush (7-10 days)', 'Within 4-5 days', 'Urgent 2-3 days (rush charges)', 'For a specific date'] },
+      { id: 'measurements', q: 'Do you have measurements ready?', opts: ["Yes, I'll share them", 'No, need to get measured', 'I have a reference piece', 'Home visit for measurements?'] },
+    ],
+    packages: [
+      { name: 'Blouse Stitching', sessions: 'Per piece', duration: '5-7 days', includes: ['Custom fitting', 'Choice of neckline & sleeve', '1 fitting session'], price: '₹300 - 1,500' },
+      { name: 'Suit Set (Kameez + Bottom)', sessions: 'Per set', duration: '7-10 days', includes: ['Full suit stitching', 'Lining', '1 fitting'], price: '₹600 - 2,500' },
+      { name: 'Bridal Package', sessions: 'Full outfit', duration: '15-20 days', includes: ['Lehenga + blouse + dupatta', '2 fittings', 'Designer consultation'], price: '₹3,000 - 8,000' },
+    ],
+  },
+  nutrition: {
+    label: 'Nutrition / Diet Consulting',
+    questions: [
+      { id: 'goal', q: "What's your primary health goal?", opts: ['Weight loss', 'Weight gain / muscle building', 'PCOD / hormonal balance', 'Diabetes management', 'Pregnancy nutrition', 'General healthy eating'] },
+      { id: 'age', q: 'Your age group?', opts: ['15-25 years', '25-35 years', '35-45 years', '45+ years'] },
+      { id: 'body', q: 'Please share your approximate height (feet) and current weight (kg):', opts: [], freeText: true },
+      { id: 'diet', q: 'Dietary preferences?', opts: ['Vegetarian', 'Eggetarian', 'Non-vegetarian', 'Vegan', 'Jain (no onion/garlic)', 'No restrictions'] },
+      { id: 'history', q: 'Tried dieting before?', opts: ['No, first time', "Tried on my own, didn't work", "Followed a dietician's plan", 'Currently on a plan'] },
+    ],
+    packages: [
+      { name: 'Quick Start (1 Month)', sessions: '4 follow-ups', duration: '1 month', includes: ['Initial assessment', 'Personalized meal plan', 'Weekly follow-up', 'Grocery list'], price: '₹1,500 - 3,000' },
+      { name: 'Transformation (3 Months)', sessions: 'Bi-weekly calls', duration: '3 months', includes: ['Body analysis', 'Monthly plan updates', 'Recipe suggestions'], price: '₹4,000 - 8,000' },
+      { name: 'Premium Coaching (Monthly)', sessions: 'Daily check-in', duration: '1 month', includes: ['Daily meal plan', 'WhatsApp check-in', 'Blood report analysis'], price: '₹6,000 - 12,000' },
+    ],
+  },
+  dance: {
+    label: 'Dance Classes',
+    questions: [
+      { id: 'style', q: 'What dance style interests you?', opts: ['Bollywood / film dance', 'Classical (Bharatanatyam, Kathak)', 'Western (Contemporary, Hip-hop)', 'Zumba / dance fitness', 'Wedding choreography'] },
+      { id: 'who', q: 'Who is this for?', opts: ['Child (3-7 years)', 'Child (8-14)', 'Teenager (15-18)', 'Adult', 'Couple (wedding)', 'Group'] },
+      { id: 'level', q: 'Dance experience?', opts: ['Complete beginner', 'Learned a little', 'Intermediate', 'Advanced'] },
+      { id: 'schedule', q: 'Preferred schedule?', opts: ['Weekday morning', 'Weekday evening', 'Weekend only', 'Flexible'] },
+    ],
+    packages: [
+      { name: 'Monthly Group (8 sessions)', sessions: '8 sessions', duration: '1 month', includes: ['2 sessions/week', 'Batch of 5-10', 'Monthly choreo'], price: '₹800 - 2,000' },
+      { name: 'Personal Training (8 sessions)', sessions: '8 sessions', duration: '1 month', includes: ['1-on-1', 'Custom choreography', 'Video recordings'], price: '₹2,500 - 5,000' },
+      { name: 'Wedding Choreography', sessions: '4-8 sessions', duration: '2-4 weeks', includes: ['Couple/sangeet group', 'Song selection help'], price: '₹5,000 - 15,000' },
+    ],
+  },
+  music: {
+    label: 'Music Classes',
+    questions: [
+      { id: 'instrument', q: 'What would you like to learn?', opts: ['Singing / vocals', 'Guitar', 'Keyboard / piano', 'Tabla / percussion', 'Flute / other', 'Music theory'] },
+      { id: 'style', q: 'Style preference?', opts: ['Hindustani classical', 'Carnatic classical', 'Bollywood / film songs', 'Western (pop, rock, jazz)', 'Devotional / bhajans', 'Mix'] },
+      { id: 'level', q: 'Current level?', opts: ['Absolute beginner', 'Self-taught / YouTube', 'Learned before, resuming', 'Intermediate', 'Advanced'] },
+      { id: 'who', q: 'Who is this for?', opts: ['Child (5-10)', 'Teenager (11-17)', 'Adult / professional', 'Senior citizen'] },
+    ],
+    packages: [
+      { name: 'Foundation (Monthly)', sessions: '8 sessions', duration: '1 month', includes: ['2 classes/week', 'Basics + practice guidance'], price: '₹1,000 - 2,500' },
+      { name: 'Performance (Monthly)', sessions: '12 sessions', duration: '1 month', includes: ['3 classes/week', 'Structured curriculum'], price: '₹2,500 - 5,000' },
+      { name: 'Crash Course (1-on-1)', sessions: '8 sessions', duration: '2-3 weeks', includes: ['Personal coaching', 'Song-of-choice'], price: '₹3,000 - 6,000' },
+    ],
+  },
+  counseling: {
+    label: 'Counseling / Therapy',
+    questions: [
+      { id: 'concern', q: 'What brings you here today?', opts: ['Stress / anxiety', 'Relationship / family issues', 'Career / work-life balance', 'Self-esteem / confidence', 'Grief / loss', "I'd prefer to share privately"], sensitive: 'Everything you share is completely confidential.' },
+      { id: 'history', q: 'Seen a counselor before?', opts: ['No, first time', 'Yes, a while ago', 'Currently seeing someone, want different perspective'] },
+      { id: 'mode', q: 'Session format preference?', opts: ['Video call (online)', 'In-person', 'Phone call'] },
+    ],
+    packages: [
+      { name: 'Single Session (50 min)', sessions: '1 session', duration: '50 min', includes: ['Initial consultation', 'Assessment', 'Coping strategies'], price: '₹800 - 2,000' },
+      { name: '4-Session Package', sessions: '4 sessions', duration: '1 month', includes: ['Weekly sessions', 'Between-session support', 'Journaling prompts'], price: '₹2,800 - 7,000' },
+      { name: '12-Session Journey', sessions: '12 sessions', duration: '3 months', includes: ['Deep work', 'Flexible scheduling', 'Crisis support'], price: '₹7,500 - 18,000' },
+    ],
+  },
+  language: {
+    label: 'Language Tutoring',
+    questions: [
+      { id: 'language', q: 'Which language?', opts: ['English (spoken/written)', 'Hindi', 'French/German/Spanish', 'Japanese/Korean/Mandarin', 'Sanskrit/regional Indian'] },
+      { id: 'purpose', q: 'Why are you learning?', opts: ['Spoken fluency / confidence', 'Job / interview prep', 'School / college exam', 'Moving abroad (IELTS, TOEFL)', 'Personal interest', 'For my child'] },
+      { id: 'level', q: 'Current level?', opts: ['Zero knowledge', "Can understand, can't speak", 'Basic phrases', 'Intermediate', 'Advanced'] },
+      { id: 'format', q: 'Preferred batch size?', opts: ['1-on-1', 'Small group (3-5)', 'Batch class', 'Self-paced with mentor'] },
+    ],
+    packages: [
+      { name: 'Conversation Course (1 Month)', sessions: '12 sessions', duration: '1 month', includes: ['Speaking + listening focus', 'Practice scenarios'], price: '₹2,000 - 4,000' },
+      { name: 'Exam Prep (IELTS/TOEFL)', sessions: '20 sessions', duration: '6-8 weeks', includes: ['Mock tests', 'Score prediction', 'Material provided'], price: '₹5,000 - 10,000' },
+      { name: 'Kids Language (Monthly)', sessions: '8 sessions', duration: '1 month', includes: ['Game-based learning', 'Progress report'], price: '₹1,200 - 2,500' },
+    ],
+  },
+  art: {
+    label: 'Art & Craft Classes',
+    questions: [
+      { id: 'type', q: 'What are you interested in?', opts: ['Drawing & sketching', 'Painting (watercolor, acrylic, oil)', 'Mandala / Warli / folk art', 'Calligraphy / lettering', 'Crafts (clay, resin, paper)', 'Mixed media'] },
+      { id: 'who', q: 'Who is this for?', opts: ['Child (4-7)', 'Child (8-12)', 'Teenager', 'Adult hobbyist', 'Adult - going professional'] },
+      { id: 'level', q: 'Art experience?', opts: ['None', 'Did art in school, restarting', 'Self-taught, want to improve', 'Formal training, want advanced'] },
+      { id: 'format', q: 'Preferred format?', opts: ['Online live classes', 'Offline (at studio)', 'Weekend workshops', 'Self-paced recorded'] },
+    ],
+    packages: [
+      { name: 'Monthly Batch (8 sessions)', sessions: '8 sessions', duration: '1 month', includes: ['2 sessions/week', 'Project-based', 'Certificate'], price: '₹800 - 2,000' },
+      { name: 'Weekend Workshop', sessions: '1 session', duration: '2-3 hours', includes: ['Complete one project', 'Materials provided'], price: '₹500 - 1,500' },
+      { name: 'Personal Coaching', sessions: '8-12 sessions', duration: '1 month', includes: ['1-on-1', 'Custom curriculum', 'Portfolio development'], price: '₹2,500 - 5,000' },
+    ],
+  },
+}
+
+// Map various category names to template keys
+function getIntakeKey(category: string): string | null {
+  const cat = category.toLowerCase().replace(/[\s\/&]+/g, '_')
+  if (INTAKE_TEMPLATES[cat]) return cat
+  // Fuzzy matches
+  const aliases: Record<string, string> = {
+    'tutoring': 'coaching', 'tuition': 'coaching', 'academic': 'coaching', 'teaching': 'coaching',
+    'healing': 'spiritual_healing', 'spiritual': 'spiritual_healing', 'reiki': 'spiritual_healing', 'tarot': 'spiritual_healing',
+    'salon': 'beauty', 'makeup': 'beauty', 'parlour': 'beauty', 'parlor': 'beauty',
+    'tailoring': 'stitching', 'boutique': 'stitching',
+    'diet': 'nutrition', 'dietician': 'nutrition', 'dietitian': 'nutrition',
+    'zumba': 'dance', 'choreography': 'dance',
+    'singing': 'music', 'guitar': 'music', 'piano': 'music', 'vocal': 'music',
+    'therapy': 'counseling', 'psychologist': 'counseling', 'mental_health': 'counseling',
+    'craft': 'art', 'painting': 'art', 'drawing': 'art',
+    'english': 'language', 'spoken_english': 'language',
+    'gym': 'fitness', 'personal_training': 'fitness', 'pt': 'fitness', 'workout': 'fitness',
+    'meditation': 'yoga',
+  }
+  return aliases[cat] || null
+}
+
+function buildIntakePrompt(category: string): string {
+  const key = getIntakeKey(category)
+  if (!key) return ''
+  const tmpl = INTAKE_TEMPLATES[key]
+  if (!tmpl) return ''
+
+  const questionsText = tmpl.questions.map((q, i) => {
+    const optsList = q.opts.length > 0
+      ? q.opts.map((o, j) => `   ${j + 1}. ${o}`).join('\n')
+      : '   (Let customer type freely)'
+    const sensitiveNote = q.sensitive ? `   ⚠️ Start with: "${q.sensitive}"\n` : ''
+    return `Q${i + 1}: "${q.q}"\n${sensitiveNote}${optsList}`
+  }).join('\n\n')
+
+  const packagesText = tmpl.packages.map((p) =>
+    `📦 *${p.name}*\n   ${p.sessions} | ${p.duration}\n   Includes: ${p.includes.join(', ')}\n   Price: ${p.price}`
+  ).join('\n\n')
+
+  return `
+INTAKE FLOW FOR ${tmpl.label.toUpperCase()}:
+When a customer wants to book, consult, or inquire about services, guide them through these qualifying questions ONE AT A TIME. Do NOT dump all questions at once.
+
+Questions (ask in order):
+${questionsText}
+
+After collecting answers, recommend the BEST-FIT package:
+${packagesText}
+
+INTAKE RULES:
+- Ask ONE question at a time. Wait for the answer before asking the next.
+- Present options as a numbered list so customer can just reply with a number.
+- If a question has freeText (no options), let the customer type their answer.
+- If the customer wants to skip a question, that's fine — move to the next.
+- After all questions, summarize their needs and recommend 1-2 packages that fit best.
+- Ask: "Would you like to book [package name]? I can set it up for you!"
+- The seller may have customized prices — if products list shows specific prices, use those instead of the ranges above.
+- Capture their name if not already known — this is a lead.
+- Be empathetic and professional. For counseling/therapy, be extra sensitive.`
+}
+
 async function generateAIReply(
   message: string,
   sellerContext: Awaited<ReturnType<typeof getSellerContext>>,
@@ -157,7 +392,7 @@ async function generateAIReply(
   const categoryLC = (seller?.category || '').toLowerCase()
 
   // Service-based categories (no physical delivery — use online/in-person instead)
-  const serviceCategories = ['coaching', 'tutoring', 'spiritual_healing', 'healing', 'spiritual', 'beauty', 'fitness', 'yoga', 'meditation', 'astrology', 'counseling', 'consulting', 'therapy']
+  const serviceCategories = ['coaching', 'tutoring', 'spiritual_healing', 'healing', 'spiritual', 'beauty', 'fitness', 'yoga', 'meditation', 'astrology', 'counseling', 'consulting', 'therapy', 'nutrition', 'diet', 'dance', 'music', 'language', 'art', 'stitching', 'tailoring']
   const isServiceCategory = serviceCategories.includes(categoryLC)
 
   // Dynamic quick-reply options based on business category
@@ -284,7 +519,9 @@ INTENT RULES:
 - extracted_items: include whenever customer mentions products — for BOTH inquiry AND order intents
 - fulfillment_type: only when customer specified pickup or delivery
 - pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
-- delivery_address: only when customer gave their address`
+- delivery_address: only when customer gave their address
+
+${buildIntakePrompt(categoryLC)}`
 
   // Build conversation for Gemini format
   const geminiContents = [
@@ -663,8 +900,19 @@ Deno.serve(async (req: Request) => {
         'food': '1️⃣ View Menu\n2️⃣ Place an Order\n3️⃣ Today\'s Specials\n4️⃣ Bulk/Party Orders\n5️⃣ Talk to Us',
         'bakery': '1️⃣ View Menu\n2️⃣ Order a Cake\n3️⃣ Custom Cake\n4️⃣ Party & Bulk Orders\n5️⃣ Talk to Us',
         'coaching': '1️⃣ Our Programs\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'tutoring': '1️⃣ Subjects Offered\n2️⃣ Book a Class\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
         'spiritual_healing': '1️⃣ Our Services\n2️⃣ Book a Session\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
         'beauty': '1️⃣ Our Services\n2️⃣ Book an Appointment\n3️⃣ Packages & Combos\n4️⃣ Pricing\n5️⃣ Talk to Us',
+        'fitness': '1️⃣ Our Programs\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'yoga': '1️⃣ Our Classes\n2️⃣ Book a Session\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'nutrition': '1️⃣ Our Programs\n2️⃣ Book a Consultation\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'dance': '1️⃣ Our Classes\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'music': '1️⃣ Our Classes\n2️⃣ Book a Session\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'counseling': '1️⃣ Our Services\n2️⃣ Book a Session\n3️⃣ Online / In-Person\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'language': '1️⃣ Languages Offered\n2️⃣ Book a Class\n3️⃣ Batch Timings\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'art': '1️⃣ Our Classes\n2️⃣ Book a Session\n3️⃣ Weekend Workshops\n4️⃣ Fees & Packages\n5️⃣ Talk to Us',
+        'stitching': '1️⃣ Our Services\n2️⃣ Place an Order\n3️⃣ Book Measurements\n4️⃣ Alteration & Repairs\n5️⃣ Talk to Us',
+        'tailoring': '1️⃣ Our Services\n2️⃣ Place an Order\n3️⃣ Book Measurements\n4️⃣ Alteration & Repairs\n5️⃣ Talk to Us',
         'jewelry': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Design\n4️⃣ Pricing & Materials\n5️⃣ Talk to Us',
         'crafts': '1️⃣ View Collection\n2️⃣ Place an Order\n3️⃣ Custom Order\n4️⃣ Pricing & Shipping\n5️⃣ Talk to Us',
       }

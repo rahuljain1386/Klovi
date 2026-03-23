@@ -346,7 +346,7 @@ export default function OnboardingPage() {
         gender: gender || null,
         niche,
         slug: newSlug,
-        category: niche === 'snacks' ? 'food' : niche === 'tiffin' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'beauty' ? 'beauty' : niche === 'jewelry' ? 'jewelry' : niche === 'crafts' ? 'crafts' : niche === 'coaching' ? 'services' : niche === 'spiritual_healing' ? 'healing' : 'other',
+        category: niche === 'snacks' ? 'snacks' : niche === 'tiffin' ? 'food' : niche === 'bakery' ? 'bakery' : niche === 'beauty' ? 'beauty' : niche === 'jewelry' ? 'jewelry' : niche === 'crafts' ? 'crafts' : niche === 'coaching' ? 'coaching' : niche === 'spiritual_healing' ? 'spiritual_healing' : 'other',
       };
 
       // New seller — add required fields
@@ -453,6 +453,12 @@ export default function OnboardingPage() {
 
     setSaving(false);
     setStep('business');
+
+    // Set default fulfillment mode based on niche
+    const svcNiches = ['coaching', 'spiritual_healing', 'beauty'];
+    if (svcNiches.includes(niche as string)) {
+      setDeliveryModes(new Set(['pickup', 'delivery'])); // In-Person + Online for services
+    }
 
     // Start AI profile + knowledge base + ingredients generation in background
     generateAiProfile();
@@ -1214,16 +1220,20 @@ export default function OnboardingPage() {
               )}
             </div>
 
-            {/* Delivery — multi-select */}
+            {/* Delivery / Service Mode — multi-select */}
             <div>
-              <label className="text-sm font-medium text-ink block mb-2">How do customers get orders?</label>
+              <label className="text-sm font-medium text-ink block mb-2">{isServiceNiche ? 'How do you offer sessions?' : 'How do customers get orders?'}</label>
               <p className="text-warm-gray text-xs mb-2">Select all that apply</p>
               <div className="space-y-2">
-                {[
+                {(isServiceNiche ? [
+                  { id: 'pickup' as DeliveryMode, label: 'In-Person', desc: 'Clients visit your studio / office', emoji: '🏠' },
+                  { id: 'delivery' as DeliveryMode, label: 'Online Sessions', desc: 'Via Zoom / Google Meet / video call', emoji: '💻' },
+                  { id: 'shipping' as DeliveryMode, label: 'Home Visit', desc: 'You visit the client\'s location', emoji: '🚗' },
+                ] : [
                   { id: 'pickup' as DeliveryMode, label: 'Pickup', desc: 'Customers come to you', emoji: '🏠' },
                   { id: 'delivery' as DeliveryMode, label: 'Local Delivery', desc: 'You deliver in your city', emoji: '🛵' },
                   { id: 'shipping' as DeliveryMode, label: isIndia ? 'PAN India Shipping' : 'Nationwide Shipping', desc: isIndia ? 'Ship across India' : 'Ship across the USA', emoji: '📦' },
-                ].map(d => {
+                ]).map(d => {
                   const selected = deliveryModes.has(d.id);
                   return (
                     <button

@@ -427,9 +427,64 @@ PRACTICAL:
 - Shower facilities?
 - Corporate wellness programs?
 - Instructor gender preference?`,
+
+    yoga: `This is a YOGA business. Cover: types of yoga offered (hatha, vinyasa, power, prenatal, therapeutic), online vs in-person, batch timings (morning/evening/weekend), session duration, beginner-friendly classes, medical conditions safe for (back pain, BP, pregnancy), trial/demo class, what to wear/bring, mat provided or bring own, diet guidance included, group vs personal sessions, monthly/quarterly plans, certification courses, age groups, meditation sessions included, pranayama/breathing classes, corporate/office yoga, retreat programs, fees and packages, home visit yoga.`,
+
+    nutrition: `This is a NUTRITION/DIET CONSULTING business. Cover: types of plans (weight loss, PCOD, diabetes, pregnancy), online vs in-person consultation, initial assessment process, meal plan customization (veg/non-veg/jain/vegan), follow-up frequency, WhatsApp daily check-in support, blood report analysis, qualifications/certifications, success stories/results, how soon to expect results, fees per month, 3-month vs 1-month plans, family nutrition plans, kids nutrition, sports nutrition, supplement guidance, grocery list provided, restaurant/travel food guidance, cheat meals allowed, refund policy.`,
+
+    dance: `This is a DANCE CLASS business. Cover: dance styles offered (Bollywood, classical, western, Zumba, wedding choreo), age groups (kids/teens/adults), batch timings, online vs offline, trial class, session duration, performance opportunities, annual day/recitals, costume arrangements, fees monthly/quarterly, group vs personal training, wedding choreography (couple/sangeet), competition preparation, exam/grading prep, video recordings of sessions, what to wear, floor/studio type, parking, certification.`,
+
+    music: `This is a MUSIC CLASS business. Cover: instruments taught (vocals, guitar, keyboard, tabla, flute), music styles (classical Hindustani/Carnatic, Bollywood, western, devotional), beginner to advanced levels, age groups, batch timings, online vs offline, trial class, session duration, instrument provided or bring own, where to buy instruments, exam preparation (Trinity, ABRSM), recording sessions, performance opportunities, recitals, fees monthly, group vs personal, theory included, practice guidance, how long to learn basics.`,
+
+    counseling: `This is a COUNSELING/THERAPY business. Cover: types of counseling (individual, couple, family, child), areas of expertise (anxiety, depression, relationship, career, grief, self-esteem), online vs in-person, session duration (typically 50 min), is everything confidential (YES — emphasize privacy), first session experience, how many sessions needed, frequency (weekly/bi-weekly), emergency/crisis support available, qualifications (degree, license, certifications), fees per session and packages, insurance accepted, can family/partner join, between-session support, journaling/homework, difference from psychiatrist (no medication), sliding scale/student discount.`,
+
+    language: `This is a LANGUAGE TUTORING business. Cover: languages offered, purpose-based learning (spoken fluency, exam prep like IELTS/TOEFL, school/college), age groups (kids/adults/professionals), online vs offline, batch size (1-on-1, small group, batch), trial class, session duration, study material provided, exam mock tests, certificate provided, batch timings, fees monthly, how long to become fluent, conversation practice sessions, native speaker teaching, homework/assignments, progress reports, corporate training, immigration/visa exam prep.`,
+
+    art: `This is an ART & CRAFT CLASS business. Cover: art forms offered (drawing, painting, mandala, calligraphy, clay, resin, crafts), age groups (kids/teens/adults), online vs offline, weekend workshops, materials provided or bring own, where to buy materials, batch timings, trial class, session duration, project-based or structured curriculum, certificate provided, exhibition/display opportunities, fees monthly, workshop pricing, group vs personal coaching, portfolio development, competition prep, art therapy, corporate team building workshops, birthday party art sessions, take-home projects.`,
   };
 
-  const industryHints = categoryContext[category] || categoryContext['food'] || '';
+  // Try exact match, then common aliases, then generic
+  const categoryAliases: Record<string, string> = {
+    'services': 'coaching', 'tutoring': 'coaching', 'tuition': 'coaching', 'academic': 'coaching', 'teaching': 'coaching',
+    'healing': 'spiritual_healing', 'spiritual': 'spiritual_healing', 'reiki': 'spiritual_healing', 'tarot': 'spiritual_healing',
+    'salon': 'beauty', 'makeup': 'beauty', 'parlour': 'beauty', 'parlor': 'beauty',
+    'tailoring': 'stitching', 'boutique': 'stitching',
+    'diet': 'nutrition', 'dietician': 'nutrition', 'dietitian': 'nutrition',
+    'gym': 'fitness', 'workout': 'fitness', 'personal_training': 'fitness',
+    'meditation': 'yoga',
+    'singing': 'music', 'guitar': 'music', 'piano': 'music', 'vocal': 'music',
+    'therapy': 'counseling', 'psychologist': 'counseling', 'mental_health': 'counseling',
+    'craft': 'art', 'painting': 'art', 'drawing': 'art',
+    'spoken_english': 'language', 'english': 'language',
+    'zumba': 'dance', 'choreography': 'dance',
+    'cake': 'bakery',
+    'pickle': 'snacks',
+  };
+  const industryHints = categoryContext[category] || categoryContext[categoryAliases[category] || ''] || '';
+
+  // Service vs product business — different mandatory coverage
+  const serviceCategories = ['coaching', 'services', 'tutoring', 'spiritual_healing', 'healing', 'beauty', 'fitness', 'yoga', 'nutrition', 'dance', 'music', 'counseling', 'language', 'art', 'stitching', 'tailoring'];
+  const isService = serviceCategories.includes(category);
+
+  const mandatoryCoverage = isService
+    ? `MANDATORY COVERAGE (generate at least 2-3 for each):
+1. Services offered — what types of sessions/classes, specializations (3-4 questions)
+2. Schedule & availability — batch timings, session duration, online vs in-person (3-4)
+3. Qualifications — experience, certifications, success stories, trial class (2-3)
+4. Pricing & packages — fees, discounts, payment plans, group rates (3-4)
+5. First-time experience — what to expect, what to prepare, what to wear (2-3)
+6. Progress & results — how soon to see results, tracking, follow-up support (2-3)
+7. Booking & cancellation — how to book, rescheduling, cancellation policy (2-3)
+8. Special needs — age groups, health conditions, customization, corporate programs (2-3)`
+    : `MANDATORY COVERAGE (generate at least 2-3 for each):
+1. Ingredients / materials / what goes into each product (5-6 questions)
+2. Dietary / health / allergy concerns (3-4)
+3. Ordering process — how to order, minimum qty, advance notice (3-4)
+4. Pricing / sizes / bulk orders / packages (3-4)
+5. Delivery / pickup / shipping / areas covered (2-3)
+6. Quality / freshness / shelf life / storage (2-3)
+7. Customization / special requests / personalization (2-3)
+8. Festival / event / gifting / corporate orders (2-3)`;
 
   const prompt = `Generate 20-25 comprehensive FAQ entries for "${seller.business_name}", a ${seller.category} business in ${seller.city}.
 
@@ -443,25 +498,18 @@ Currency: ${sym}
 
 Generate realistic Q&A pairs that REAL customers would ask on WhatsApp. These should cover the FULL RANGE of customer concerns — not just basics.
 
-MANDATORY COVERAGE (generate at least 2-3 for each):
-1. Ingredients / materials / what goes into each product (5-6 questions)
-2. Dietary / health / allergy concerns (3-4)
-3. Ordering process — how to order, minimum qty, advance notice (3-4)
-4. Pricing / sizes / bulk orders / packages (3-4)
-5. Delivery / pickup / shipping / areas covered (2-3)
-6. Quality / freshness / shelf life / storage (2-3)
-7. Customization / special requests / personalization (2-3)
-8. Festival / event / gifting / corporate orders (2-3)
+${mandatoryCoverage}
 
 RULES:
 - Answers should be helpful, warm, and concise (1-3 sentences max)
 - Sound like a real small business owner replying on WhatsApp, not corporate
 - Use ${sym} for prices where relevant
-- For specific details you don't know (exact ingredients per product), give helpful generic answers like "All our items are freshly homemade with quality ingredients. For specific ingredients of any item, just ask!"
-- Don't make up specific prices — use "Please check our menu for current prices" if needed
+- ${isService ? 'For details you don\'t know (exact timings, specific fees), give helpful generic answers like "We offer flexible timings — just ask and we\'ll find a slot that works for you!"' : 'For specific details you don\'t know (exact ingredients per product), give helpful generic answers like "All our items are freshly homemade with quality ingredients. For specific ingredients of any item, just ask!"'}
+- Don't make up specific prices — use "${isService ? 'Please ask about our current packages and pricing' : 'Please check our menu for current prices'}" if needed
 - Include the business name naturally where it fits
 - Cover both the OBVIOUS questions AND the non-obvious ones real customers ask
-- Include questions in the casual way customers actually ask on WhatsApp (e.g., "do u deliver to my area?" not "What are your delivery zones?")
+- Include questions in the casual way customers actually ask on WhatsApp (e.g., "${isService ? 'do u do online classes?' : 'do u deliver to my area?'}")
+- IMPORTANT: Generate questions ONLY relevant to a ${seller.category} business. Do NOT include food/cooking/ingredient questions for non-food businesses.
 
 Return JSON array: [{"question": "...", "answer": "..."}, ...]`;
 
