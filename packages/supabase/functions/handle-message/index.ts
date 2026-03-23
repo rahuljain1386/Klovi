@@ -106,7 +106,7 @@ async function getConversationHistory(conversationId: string, limit = 20) {
 async function getSellerContext(sellerId: string) {
   const { data: seller } = await supabase
     .from('sellers')
-    .select('business_name, description, category, city, country, language, deposit_percentage, fulfillment_modes, phone, whatsapp_number')
+    .select('business_name, description, category, city, country, language, deposit_percentage, fulfillment_modes, phone, whatsapp_number, intake_questions, intake_packages')
     .eq('id', sellerId)
     .single()
 
@@ -339,33 +339,66 @@ function getIntakeKey(category: string): string | null {
   return aliases[cat] || null
 }
 
-function buildIntakePrompt(category: string): string {
-  const key = getIntakeKey(category)
-  if (!key) return ''
-  const tmpl = INTAKE_TEMPLATES[key]
-  if (!tmpl) return ''
+function buildIntakePrompt(category: string, sellerIntake?: { questions?: any[]; packages?: any[] }): string {
+  // Use seller-customized intake if available, otherwise fall back to defaults
+  let questions: { q: string; opts: string[]; freeText?: boolean; sensitive?: string }[] = []
+  let packages: { name: string; sessions: string; duration: string; includes: string[]; price: string }[] = []
+  let label = category
 
-  const questionsText = tmpl.questions.map((q, i) => {
-    const optsList = q.opts.length > 0
-      ? q.opts.map((o, j) => `   ${j + 1}. ${o}`).join('\n')
+  if (sellerIntake?.questions && sellerIntake.questions.length > 0) {
+    // Seller has customized questions from onboarding
+    questions = sellerIntake.questions.map((q: any) => ({
+      q: q.question || q.q || '',
+      opts: q.options || q.opts || [],
+      freeText: q.freeText || q.allowFreeText,
+      sensitive: q.sensitive || q.sensitiveNote,
+    }))
+  }
+  if (sellerIntake?.packages && sellerIntake.packages.length > 0) {
+    packages = sellerIntake.packages.map((p: any) => ({
+      name: p.name || '',
+      sessions: p.sessions || '',
+      duration: p.duration || '',
+      includes: p.includes || [],
+      price: p.priceRange || p.price || '',
+    }))
+  }
+
+  // Fall back to default templates if no seller customization
+  if (questions.length === 0 || packages.length === 0) {
+    const key = getIntakeKey(category)
+    if (!key) return ''
+    const tmpl = INTAKE_TEMPLATES[key]
+    if (!tmpl) return ''
+    label = tmpl.label
+    if (questions.length === 0) questions = tmpl.questions
+    if (packages.length === 0) packages = tmpl.packages
+  }
+
+  if (questions.length === 0) return ''
+
+  const questionsText = questions.map((q, i) => {
+    const optsList = (q.opts || []).length > 0
+      ? q.opts.map((o: string, j: number) => `   ${j + 1}. ${o}`).join('\n')
       : '   (Let customer type freely)'
     const sensitiveNote = q.sensitive ? `   ⚠️ Start with: "${q.sensitive}"\n` : ''
     return `Q${i + 1}: "${q.q}"\n${sensitiveNote}${optsList}`
   }).join('\n\n')
 
-  const packagesText = tmpl.packages.map((p) =>
-    `📦 *${p.name}*\n   ${p.sessions} | ${p.duration}\n   Includes: ${p.includes.join(', ')}\n   Price: ${p.price}`
-  ).join('\n\n')
+  const packagesText = packages.length > 0
+    ? packages.map((p) =>
+        `📦 *${p.name}*\n   ${p.sessions} | ${p.duration}\n   Includes: ${(p.includes || []).join(', ')}\n   Price: ${p.price}`
+      ).join('\n\n')
+    : ''
 
   return `
-INTAKE FLOW FOR ${tmpl.label.toUpperCase()}:
+INTAKE FLOW FOR ${label.toUpperCase()}:
 When a customer wants to book, consult, or inquire about services, guide them through these qualifying questions ONE AT A TIME. Do NOT dump all questions at once.
 
 Questions (ask in order):
 ${questionsText}
 
-After collecting answers, recommend the BEST-FIT package:
-${packagesText}
+${packagesText ? `After collecting answers, recommend the BEST-FIT package:\n${packagesText}` : ''}
 
 INTAKE RULES:
 - Ask ONE question at a time. Wait for the answer before asking the next.
@@ -521,7 +554,7 @@ INTENT RULES:
 - pickup_date/pickup_time: only when customer gave a date/time. Convert relative dates to actual dates. Today is ${new Date().toISOString().split('T')[0]}.
 - delivery_address: only when customer gave their address
 
-${buildIntakePrompt(categoryLC)}`
+${buildIntakePrompt(categoryLC, { questions: seller?.intake_questions, packages: seller?.intake_packages })}`
 
   // Build conversation for Gemini format
   const geminiContents = [

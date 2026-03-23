@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { NICHE_TO_CATEGORIES, NICHE_OPTIONS, CATALOG_PRODUCTS, CATALOG_CATEGORIES, type CatalogProduct as StaticCatalogProduct } from '@/data/product-catalog';
+import { INTAKE_TEMPLATES, getIntakeTemplate } from '@/data/intake-templates';
 import MicButton from '@/components/MicButton';
 
 // Track whether user has manually edited a field (to prevent DB overwrite)
@@ -150,6 +151,13 @@ export default function OnboardingPage() {
   const [knowledgeEntries, setKnowledgeEntries] = useState<KBEntry[]>([]);
   const [kbLoading, setKbLoading] = useState(false);
   const [kbExpanded, setKbExpanded] = useState(false);
+
+  // Intake questions for service businesses (shown to leads on WhatsApp)
+  interface IntakeQ { id: string; question: string; options: string[]; freeText?: boolean }
+  interface IntakePkg { name: string; sessions: string; duration: string; includes: string[]; priceRange: string }
+  const [intakeQuestions, setIntakeQuestions] = useState<IntakeQ[]>([]);
+  const [intakePackages, setIntakePackages] = useState<IntakePkg[]>([]);
+  const [intakeExpanded, setIntakeExpanded] = useState(true);
 
   // AI-generated profile (runs in background)
   const [aiProfile, setAiProfile] = useState<any>(null);
@@ -460,6 +468,13 @@ export default function OnboardingPage() {
       setDeliveryModes(new Set(['pickup', 'delivery'])); // In-Person + Online for services
     }
 
+    // Load intake questions for service niches
+    const tmpl = getIntakeTemplate(niche as string);
+    if (tmpl) {
+      setIntakeQuestions(tmpl.questions.map(q => ({ id: q.id, question: q.question, options: [...q.options], freeText: q.allowFreeText })));
+      setIntakePackages(tmpl.packages.map(p => ({ name: p.name, sessions: p.sessions, duration: p.duration, includes: [...p.includes], priceRange: p.priceRange })));
+    }
+
     // Start AI profile + knowledge base + ingredients generation in background
     generateAiProfile();
 
@@ -521,6 +536,21 @@ export default function OnboardingPage() {
           body: JSON.stringify({ sellerId: effectiveId, entries: knowledgeEntries }),
         });
       } catch {} // non-blocking — don't fail go-live for this
+    }
+
+    // Save intake questions + packages for service businesses
+    if (intakeQuestions.length > 0 && effectiveId) {
+      try {
+        await fetch('/api/onboarding/save-intake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sellerId: effectiveId,
+            questions: intakeQuestions.filter(q => q.question.trim()),
+            packages: intakePackages.filter(p => p.name.trim()),
+          }),
+        });
+      } catch {} // non-blocking
     }
 
     try {
@@ -1332,6 +1362,166 @@ export default function OnboardingPage() {
                 <p className="text-ink font-medium italic">"{aiProfile.tagline}"</p>
                 {aiProfile.launchOffer && (
                   <p className="text-warm-gray text-xs mt-2">Launch offer: {aiProfile.launchOffer}</p>
+                )}
+              </div>
+            )}
+
+            {/* ── Intake Questions for Service Businesses ── */}
+            {isServiceNiche && intakeQuestions.length > 0 && (
+              <div className="bg-white rounded-xl border-2 border-amber/30 overflow-hidden">
+                <button
+                  onClick={() => setIntakeExpanded(!intakeExpanded)}
+                  className="w-full flex items-center justify-between p-4"
+                >
+                  <div>
+                    <p className="text-xs text-amber font-bold tracking-wider">LEAD QUALIFYING QUESTIONS</p>
+                    <p className="text-warm-gray text-[11px] mt-0.5">
+                      When someone contacts you on WhatsApp, your bot will ask these questions to understand their needs and recommend the right package.
+                    </p>
+                  </div>
+                  <span className="text-warm-gray text-sm flex-shrink-0 ml-2">{intakeExpanded ? '▲' : '▼'}</span>
+                </button>
+
+                {intakeExpanded && (
+                  <div className="px-4 pb-4 space-y-4">
+                    {/* Questions */}
+                    <div className="space-y-3">
+                      <p className="text-[11px] text-warm-gray font-medium">
+                        These questions guide the conversation. Edit, reorder, or remove as needed.
+                      </p>
+                      {intakeQuestions.map((q, qIdx) => (
+                        <div key={q.id} className="border border-border rounded-lg p-3 space-y-2">
+                          <div className="flex items-start gap-2">
+                            <span className="text-amber text-xs font-bold mt-1 flex-shrink-0">Q{qIdx + 1}</span>
+                            <input
+                              type="text"
+                              value={q.question}
+                              onChange={e => {
+                                setIntakeQuestions(prev => prev.map((iq, i) =>
+                                  i === qIdx ? { ...iq, question: e.target.value } : iq
+                                ));
+                              }}
+                              className="flex-1 text-sm font-medium text-ink border-none focus:outline-none bg-transparent"
+                            />
+                            <button
+                              onClick={() => setIntakeQuestions(prev => prev.filter((_, i) => i !== qIdx))}
+                              className="text-warm-gray hover:text-rose text-sm flex-shrink-0"
+                            >✕</button>
+                          </div>
+                          {q.freeText ? (
+                            <p className="text-[10px] text-warm-gray ml-6 italic">Customer types a free-text answer</p>
+                          ) : (
+                            <div className="ml-6 space-y-1">
+                              {q.options.map((opt, oIdx) => (
+                                <div key={oIdx} className="flex items-center gap-1.5">
+                                  <span className="text-warm-gray text-[10px] w-4 flex-shrink-0">{oIdx + 1}.</span>
+                                  <input
+                                    type="text"
+                                    value={opt}
+                                    onChange={e => {
+                                      setIntakeQuestions(prev => prev.map((iq, i) =>
+                                        i === qIdx ? { ...iq, options: iq.options.map((o, j) => j === oIdx ? e.target.value : o) } : iq
+                                      ));
+                                    }}
+                                    className="flex-1 text-[11px] text-warm-gray border-none focus:outline-none bg-transparent py-0.5"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      setIntakeQuestions(prev => prev.map((iq, i) =>
+                                        i === qIdx ? { ...iq, options: iq.options.filter((_, j) => j !== oIdx) } : iq
+                                      ));
+                                    }}
+                                    className="text-warm-gray/50 hover:text-rose text-[10px] flex-shrink-0"
+                                  >✕</button>
+                                </div>
+                              ))}
+                              <button
+                                onClick={() => {
+                                  setIntakeQuestions(prev => prev.map((iq, i) =>
+                                    i === qIdx ? { ...iq, options: [...iq.options, ''] } : iq
+                                  ));
+                                }}
+                                className="text-[10px] text-amber/70 hover:text-amber ml-4"
+                              >+ Add option</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {/* Add question */}
+                      <button
+                        onClick={() => setIntakeQuestions(prev => [...prev, { id: `custom_${Date.now()}`, question: '', options: ['Option 1', 'Option 2'] }])}
+                        className="w-full py-2 rounded-lg border border-dashed border-amber/40 text-amber text-xs font-medium hover:border-amber hover:bg-amber/5 transition-colors"
+                      >
+                        + Add Question
+                      </button>
+                    </div>
+
+                    {/* Packages */}
+                    {intakePackages.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t border-border">
+                        <p className="text-[11px] text-warm-gray font-medium">
+                          Packages to recommend after qualifying — edit names and prices to match yours.
+                        </p>
+                        {intakePackages.map((pkg, pIdx) => (
+                          <div key={pIdx} className="bg-cream/50 rounded-lg p-3 space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm">📦</span>
+                              <input
+                                type="text"
+                                value={pkg.name}
+                                onChange={e => {
+                                  setIntakePackages(prev => prev.map((p, i) =>
+                                    i === pIdx ? { ...p, name: e.target.value } : p
+                                  ));
+                                }}
+                                className="flex-1 text-sm font-semibold text-ink border-none focus:outline-none bg-transparent"
+                              />
+                              <button
+                                onClick={() => setIntakePackages(prev => prev.filter((_, i) => i !== pIdx))}
+                                className="text-warm-gray hover:text-rose text-sm flex-shrink-0"
+                              >✕</button>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 ml-6">
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-warm-gray">Sessions:</span>
+                                <input
+                                  type="text" value={pkg.sessions}
+                                  onChange={e => setIntakePackages(prev => prev.map((p, i) => i === pIdx ? { ...p, sessions: e.target.value } : p))}
+                                  className="text-[11px] text-ink w-24 border-none focus:outline-none bg-transparent"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-warm-gray">Duration:</span>
+                                <input
+                                  type="text" value={pkg.duration}
+                                  onChange={e => setIntakePackages(prev => prev.map((p, i) => i === pIdx ? { ...p, duration: e.target.value } : p))}
+                                  className="text-[11px] text-ink w-20 border-none focus:outline-none bg-transparent"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-warm-gray">Price:</span>
+                                <input
+                                  type="text" value={pkg.priceRange}
+                                  onChange={e => setIntakePackages(prev => prev.map((p, i) => i === pIdx ? { ...p, priceRange: e.target.value } : p))}
+                                  className="text-[11px] text-ink font-medium w-28 border-none focus:outline-none bg-transparent"
+                                />
+                              </div>
+                            </div>
+                            <div className="ml-6">
+                              <span className="text-[10px] text-warm-gray">Includes: </span>
+                              <span className="text-[10px] text-ink">{pkg.includes.join(' · ')}</span>
+                            </div>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => setIntakePackages(prev => [...prev, { name: 'New Package', sessions: '', duration: '', includes: [], priceRange: '' }])}
+                          className="w-full py-2 rounded-lg border border-dashed border-amber/40 text-amber text-xs font-medium hover:border-amber hover:bg-amber/5 transition-colors"
+                        >
+                          + Add Package
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
